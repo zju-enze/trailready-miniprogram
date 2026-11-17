@@ -1,0 +1,22 @@
+.trip-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 330rpx;
+  overflow: hidden;
+  border-radius: 32rpx;
+  background: #254438;
+  color: white;
+}
+.hero-photo, .hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-shade { background: linear-gradient(0deg, rgba(13,40,32,.91), rgba(10,31,25,.07)); }
+.hero-content { position: relative; padding: 34rpx; display: flex; flex-direction: column; }
+.hero-kicker { font-size: 23rpx; letter-spacing: 2rpx; font-weight: 600; }
+.hero-title { font-size: 52rpx; font-weight: 700; line-height: 1.25; margin: 12rpx 0; overflow-wrap: anywhere; }
+.hero-date { font-size: 25rpx; }
+.trail-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0 8rpx; color: #53655c; font-size: 26rpx; }
+.trail-entry { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+.day-num {
+  flex: none; width: 48rpx; height: 48rpx; line-height: 48rpx; text-align: center;
+  border-radius: 50%; background: #e9f2ec; color: #18674f; font-weight: 600;
+}

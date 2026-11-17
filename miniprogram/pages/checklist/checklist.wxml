@@ -1,0 +1,27 @@
+<view class="trail-screen" wx:if="{{trip}}">
+  <view class="view-intro"><text class="trail-meta">{{trip.name}}</text><text class="view-title">准备好，再出发</text></view>
+  <view class="trail-card">
+    <view class="trail-heading"><text class="section-title">已核对 {{prep.done}} / {{prep.total}} 项</text><text class="status">{{!prep.total ? '待添加' : prep.remaining ? '准备中' : '核对完成'}}</text></view>
+    <progress percent="{{prep.percent}}" activeColor="#16715a" backgroundColor="#e1eae4" stroke-width="4"/>
+  </view>
+  <view class="trail-card">
+    <view class="trail-heading"><text class="section-title">携带物品</text><navigator class="trail-link" open-type="redirect" url="/pages/carry/carry?trip={{trip.id}}">调整清单 ›</navigator></view>
+    <text class="trail-note" wx:if="{{!prep.items.length}}">尚未选择本次携带的物品。</text>
+    <button wx:for="{{prep.items}}" wx:key="id" class="trail-check {{item.packed ? 'checked' : ''}}" data-id="{{item.id}}" bindtap="toggleGear" aria-label="{{item.name}}，{{item.packed ? '已核对' : '待核对'}}">
+      <text class="checkmark">{{item.packed ? '✓' : ''}}</text><view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">× {{item.quantity}} · {{item.worn ? '穿着核对' : '装包'}}</text></view>
+    </button>
+  </view>
+  <view class="trail-card">
+    <view class="trail-heading"><text class="section-title">出发前再核对</text><button class="trail-link" bindtap="addCheck">＋ 添加事项</button></view>
+    <view class="task-line" wx:for="{{trip.checks}}" wx:key="id">
+      <button class="trail-check {{item.done ? 'checked' : ''}}" data-id="{{item.id}}" bindtap="toggleCheck" aria-label="{{item.text}}，{{item.done ? '已确认' : '待确认'}}">
+        <text class="checkmark">{{item.done ? '✓' : ''}}</text><text class="row-title">{{item.text}}</text>
+      </button>
+      <button class="trail-muted" data-id="{{item.id}}" bindtap="removeCheck" aria-label="删除{{item.text}}">移除</button>
+    </view>
+    <button class="trail-check {{item.done ? 'checked' : ''}}" wx:for="{{prep.logistics}}" wx:key="id" data-index="{{item.index}}" data-field="{{item.field}}" bindtap="toggleLogistics" aria-label="{{item.text}}，{{item.done ? '已确认' : '待确认'}}">
+      <text class="checkmark">{{item.done ? '✓' : ''}}</text><view class="row-main"><text class="row-title">{{item.text}}</text><text class="trail-meta">{{item.done ? '已确认' : '待确认'}}</text></view>
+    </button>
+  </view>
+  <t-button block variant="outline" open-type="feedback">反馈行前清单</t-button>
+</view>

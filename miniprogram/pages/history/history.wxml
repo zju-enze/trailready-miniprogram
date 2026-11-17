@@ -1,0 +1,25 @@
+<view class="trail-screen tab-screen">
+  <block wx:if="{{!draft}}">
+    <view class="trail-heading"><view class="view-intro"><text class="view-title">徒步经历</text><text class="trail-meta">已记录 {{records.length}} 次</text></view><button class="trail-primary" bindtap="edit">＋ 记一次</button></view>
+    <view wx:if="{{!records.length}}" class="trail-card"><text class="section-title">你上次走了哪条路线？</text><text class="trail-note">记下实际里程、爬升和体感，下次做行前评估时就有自己的参照。</text></view>
+    <view wx:for="{{records}}" wx:key="id" class="trail-card">
+      <view class="trail-heading"><text class="section-title">{{item.name}}</text><button class="trail-link" data-id="{{item.id}}" bindtap="edit">编辑 ›</button></view>
+      <text class="trail-meta">{{item.date}}{{item.effort ? ' · ' + item.effort : ''}}</text>
+      <view class="record-stats"><text wx:if="{{item.distance !== null}}">{{item.distance}} km</text><text wx:if="{{item.ascent !== null}}">爬升 {{item.ascent}} m</text><text wx:if="{{item.hours !== null}}">{{item.hours}} 小时</text><text wx:if="{{item.load !== null}}">负重 {{item.load}} kg</text></view>
+      <text wx:if="{{item.note}}" class="trail-note">{{item.note}}</text>
+    </view>
+  </block>
+  <form wx:else bindsubmit="saveRecord">
+    <view class="trail-card record-form">
+      <text class="section-title">{{draft.id ? '编辑经历' : '记下一次徒步'}}</text>
+      <label>路线名称<input name="name" value="{{draft.name}}" placeholder="例如：九溪至龙井村" maxlength="80"/></label>
+      <view>活动日期<picker mode="date" value="{{draft.date}}" end="{{today}}" bindchange="changeDate"><view class="record-picker">{{draft.date}}　›</view></picker></view>
+      <label wx:for="{{metrics}}" wx:key="key">{{item.label}}（{{item.unit}}）<input type="digit" name="{{item.key}}" value="{{draft[item.key] == null ? '' : draft[item.key]}}" placeholder="可留空"/></label>
+      <view>实际体感<picker range="{{efforts}}" value="{{effortIndex}}" bindchange="changeEffort"><view class="record-picker">{{efforts[effortIndex]}}　›</view></picker></view>
+      <label>回顾<textarea name="note" value="{{draft.note}}" maxlength="400" auto-height placeholder="哪段吃力、哪些装备派上了用场？"/></label>
+      <text wx:if="{{error}}" class="record-error">{{error}}</text>
+      <button class="trail-primary" form-type="submit">保存经历</button>
+      <view class="trail-heading"><button class="trail-link" bindtap="cancel">取消</button><button wx:if="{{draft.id}}" class="trail-muted" bindtap="remove">删除经历</button></view>
+    </view>
+  </form>
+</view>

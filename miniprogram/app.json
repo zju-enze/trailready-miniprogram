@@ -1,0 +1,28 @@
+{
+  "pages": [
+    "pages/overview/overview",
+    "pages/carry/carry",
+    "pages/gear/gear",
+    "pages/history/history",
+    "pages/checklist/checklist",
+    "pages/index/index"
+  ],
+  "tabBar": {
+    "custom": true,
+    "color": "#52645a",
+    "selectedColor": "#12644e",
+    "list": [
+      { "pagePath": "pages/overview/overview", "text": "准备" },
+      { "pagePath": "pages/gear/gear", "text": "装备" },
+      { "pagePath": "pages/history/history", "text": "经历" }
+    ]
+  },
+  "window": {
+    "navigationBarTitleText": "TrailReady 步履无忧",
+    "navigationBarBackgroundColor": "#FBF9F5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FBF9F5",
+    "backgroundTextStyle": "dark"
+  },
+  "lazyCodeLoading": "requiredComponents"
+}

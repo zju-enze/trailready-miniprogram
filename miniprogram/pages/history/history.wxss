@@ -1,0 +1,9 @@
+.record-stats { display:flex; flex-wrap:wrap; gap:16rpx; color:#185d49; font-size:27rpx; }
+.record-form { display:flex; flex-direction:column; gap:18rpx; font-size:27rpx; }
+.record-form input, .record-form textarea, .record-picker {
+  box-sizing:border-box; width:100%; margin-top:6rpx; padding:14rpx 18rpx;
+  border:1rpx solid #dce6df; border-radius:14rpx; background:#f3f7f3; color:#162d24;
+}
+.record-form input { height:78rpx; }
+.record-form textarea { min-height:100rpx; }
+.record-error { color:#a43b38; }

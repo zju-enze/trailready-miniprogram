@@ -1,0 +1,13 @@
+.weight-panel {
+  display: flex; flex-direction: column; gap: 4rpx;
+  background: #104f40; color: #e2f2e8; border-radius: 28rpx; padding: 26rpx 34rpx; font-size: 26rpx;
+}
+.weight-panel .metric { color: white; }
+.weight-panel .unit { color: #e2f2e8; }
+.item-block { border-top: 1rpx solid #e1e9e3; padding: 18rpx 0; }
+.trail-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10rpx; }
+.placement, .stepper { background: #edf4ee; border-radius: 14rpx; color: #185d49; }
+.trail-screen .placement { padding: 8rpx 18rpx; font-size: 26rpx; background: #edf4ee; }
+.stepper { display: flex; align-items: center; gap: 10rpx; }
+.stepper button { width: 66rpx; min-height: 64rpx; font-size: 30rpx; text-align: center; }
+.stepper button[disabled] { opacity: .35; }

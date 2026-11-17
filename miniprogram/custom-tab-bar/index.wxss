@@ -1,0 +1,33 @@
+.dock {
+  position: fixed;
+  z-index: 100;
+  left: 12%;
+  right: 12%;
+  bottom: calc(12rpx + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 6rpx;
+  padding: 8rpx;
+  border: 1rpx solid #d4e1d8;
+  border-radius: 48rpx;
+  background: rgba(248, 251, 247, .95);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6rpx 24rpx rgba(25, 56, 41, .14);
+}
+.dock-item {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3rpx;
+  border-radius: 40rpx;
+  color: #52645a;
+  font-size: 23rpx;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.dock-icon { width: 44rpx; height: 44rpx; }
+.dock-item.active { background: #12644e; color: white; }
+.dock-item.pressed { opacity: .82; }

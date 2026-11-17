@@ -1,0 +1,41 @@
+<view class="trail-screen tab-screen">
+  <view class="trip-hero">
+    <image src="/assets/mountain.jpg" mode="aspectFill" class="hero-photo"/>
+    <view class="hero-shade"/>
+    <view class="hero-content">
+      <text class="hero-kicker">TrailReady</text>
+      <text class="hero-title">{{trip ? trip.name : '准备下一次山行'}}</text>
+      <text wx:if="{{trip}}" class="hero-date">{{dateRange}}</text>
+    </view>
+  </view>
+  <view wx:if="{{!trip}}" class="trail-card">
+    <view class="section-title">我的行程</view>
+    <view class="trail-note">记下路线、选好本次装备，出发前回来逐项核对。</view>
+    <button class="trail-primary" bindtap="createTrip">新建行程</button>
+  </view>
+  <block wx:else>
+    <view class="trail-toolbar">
+      <picker wx:if="{{choices.length > 1}}" range="{{choices}}" range-key="name" value="{{selectedIndex}}" bindchange="selectTrip"><view class="trail-link">切换行程 ⌄</view></picker>
+      <text wx:else>当前行程</text>
+      <button class="trail-link" bindtap="createTrip">＋ 新建行程</button>
+    </view>
+    <view class="trail-card">
+      <view class="trail-heading"><text class="section-title">行前准备</text><text class="status">{{!prep.total ? '待添加' : prep.remaining ? '准备中' : '已核对'}}</text></view>
+      <view class="metric">{{prep.done}}<text class="unit"> / {{prep.total}} 项已核对</text></view>
+      <progress percent="{{prep.percent}}" activeColor="#16715a" backgroundColor="#e1eae4" stroke-width="4"/>
+      <view wx:if="{{prep.next}}" class="trail-note">待核对 · {{prep.next}}</view>
+      <button class="trail-primary" bindtap="openChecklist">{{prep.remaining ? '继续准备' : '查看行前清单'}}</button>
+    </view>
+    <button class="trail-card trail-entry" bindtap="openCarry">
+      <text class="section-title">本次装备</text><text class="trail-meta">{{prep.pieces}} 件 · {{prep.missing ? '已知' : '包内'}} {{prep.kg}} kg　›</text>
+    </button>
+    <view class="trail-card">
+      <view class="trail-heading"><text class="section-title">每日行程</text><button class="trail-link" bindtap="editTrip">编辑安排 ›</button></view>
+      <view class="trail-row" wx:for="{{trip.days}}" wx:key="dateString">
+        <text class="day-num">{{index + 1}}</text><view class="row-main"><text class="row-title">{{item.from ? item.from + ' → ' : ''}}{{item.destination || '待填写目的地'}}</text><text class="trail-meta">{{item.displayDate}}</text>
+          <text wx:if="{{item.stay}}" class="trail-meta">住宿 · {{item.stay}}</text><text wx:if="{{item.transport}}" class="trail-meta">接驳 · {{item.transport}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

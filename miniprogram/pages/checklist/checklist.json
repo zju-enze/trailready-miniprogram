@@ -1,0 +1,4 @@
+{
+  "navigationBarTitleText": "行前清单",
+  "usingComponents": { "t-button": "tdesign-miniprogram/button/button" }
+}

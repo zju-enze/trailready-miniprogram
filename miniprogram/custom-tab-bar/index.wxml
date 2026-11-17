@@ -1,0 +1,8 @@
+<view class="dock" aria-label="主导航">
+  <navigator wx:for="{{tabs}}" wx:key="route" class="dock-item {{route === item.route ? 'active' : ''}}"
+    open-type="switchTab" url="/{{item.route}}" hover-class="pressed"
+    aria-label="{{item.text}}{{route === item.route ? '，当前页面' : ''}}">
+    <image class="dock-icon" src="/assets/nav/{{item.icon}}{{route === item.route ? '-active' : ''}}.png" mode="aspectFit" aria-hidden="true"/>
+    <text>{{item.text}}</text>
+  </navigator>
+</view>

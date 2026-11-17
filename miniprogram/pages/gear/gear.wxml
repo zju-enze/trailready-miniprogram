@@ -1,0 +1,20 @@
+<view class="trail-screen tab-screen">
+  <view class="gear-header">
+    <view class="view-intro">
+      <text class="view-title">我的装备</text>
+      <text class="trail-meta">共 {{count}} 件装备</text>
+    </view>
+    <navigator class="trail-primary" url="/pages/index/index?tab=gear&edit=new">＋ 添加装备</navigator>
+  </view>
+  <view wx:if="{{!count}}" class="trail-card">
+    <text class="trail-note">添加第一件装备后，就可以在准备行程时选用。</text>
+  </view>
+  <view wx:for="{{groups}}" wx:key="category" wx:for-item="group" class="trail-card">
+    <view class="trail-heading"><text class="section-title">{{group.label}}</text><text class="trail-meta">{{group.items.length}} 件</text></view>
+    <navigator wx:for="{{group.items}}" wx:key="id" class="trail-row"
+      url="/pages/index/index?tab=gear&edit={{item.id}}" aria-label="编辑{{item.name}}">
+      <text class="row-main row-title">{{item.name}}</text>
+      <text class="trail-meta">{{item.weight === null ? '重量待补' : item.weight + ' g'}}　›</text>
+    </navigator>
+  </view>
+</view>

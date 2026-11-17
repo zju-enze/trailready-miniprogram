@@ -1,0 +1,25 @@
+<view class="trail-screen" wx:if="{{trip}}">
+  <view class="view-intro"><text class="trail-meta">{{trip.name}}</text><text class="view-title">这次，带哪些装备？</text></view>
+  <view class="weight-panel"><text class="metric">{{prep.kg}}<text class="unit"> kg</text></text><text>{{prep.missing ? '包内已知重量' : '包内重量'}} · {{prep.pieces}} 件已选</text><text wx:if="{{prep.missing}}">{{prep.missing}} 件重量待补充</text></view>
+  <view class="trail-card">
+    <view class="trail-heading"><text class="section-title">本次携带</text><button class="trail-link" bindtap="togglePicker">{{choosing ? '收起装备库' : '＋ 从装备库添加'}}</button></view>
+    <text wx:if="{{!prep.items.length}}" class="trail-note">从装备库选择这次要带的物品。</text>
+    <view class="item-block" wx:for="{{prep.items}}" wx:key="id">
+      <view class="trail-heading"><text class="row-title">{{item.name}}</text><button class="trail-muted" data-id="{{item.id}}" data-action="remove" bindtap="changeItem">移除</button></view>
+      <text class="trail-meta">{{item.weight === null ? '单件重量待补充' : item.weight + ' g / 件'}}</text>
+      <view class="trail-controls">
+        <button class="placement" data-id="{{item.id}}" data-action="worn" bindtap="changeItem">{{item.worn ? '穿在身上 ⇄' : '放入包内 ⇄'}}</button>
+        <view class="stepper"><button disabled="{{item.quantity <= 1}}" aria-label="减少数量" data-id="{{item.id}}" data-action="minus" bindtap="changeItem">−</button><text>{{item.quantity}}</text><button aria-label="增加数量" data-id="{{item.id}}" data-action="plus" bindtap="changeItem">＋</button></view>
+      </view>
+    </view>
+  </view>
+  <view wx:if="{{choosing}}" class="trail-card">
+    <view class="trail-heading"><text class="section-title">从装备库添加</text><button class="trail-link" bindtap="openGear">管理装备 ›</button></view>
+    <text wx:if="{{!available.length}}" class="trail-note">没有可添加的装备。</text>
+    <view class="trail-row" wx:for="{{available}}" wx:key="id">
+      <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.suggested ? '行程推荐 · ' : ''}}{{item.weight === null ? '单件重量待补充' : item.weight + ' g / 件'}}</text></view>
+      <button class="trail-link" data-id="{{item.id}}" data-action="add" bindtap="changeItem">添加</button>
+    </view>
+  </view>
+  <navigator class="trail-primary" url="/pages/checklist/checklist?trip={{trip.id}}" open-type="redirect">查看行前清单</navigator>
+</view>

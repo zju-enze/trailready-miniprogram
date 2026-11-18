@@ -1,4 +1,5 @@
 .trail-screen .record-list { padding-top: 0; padding-bottom: 0; }
+.profile-entry { display: flex; justify-content: space-between; align-items: center; min-height: 64px; }
 .trail-screen .record-entry { display: block; width: 100%; min-height: 48px; padding: 24rpx 0; }
 .record-entry + .record-entry, .field-row + .field-row { border-top: 1rpx solid #e5e9e6; }
 .record-entry .section-title { overflow-wrap: anywhere; }

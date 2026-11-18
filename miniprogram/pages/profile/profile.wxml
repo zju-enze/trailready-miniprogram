@@ -1,0 +1,70 @@
+<view class="trail-screen profile-screen">
+  <view class="trail-card">
+    <view class="trail-heading">
+      <text class="section-title">我的自评</text>
+      <button wx:if="{{!editing && !profileError}}" class="trail-link" bindtap="edit">编辑自评</button>
+      <button wx:if="{{editing}}" class="trail-link" bindtap="cancel">取消</button>
+    </view>
+    <block wx:if="{{profileError && !editing}}">
+      <text class="profile-error" role="alert">{{profileError}}</text>
+      <button class="trail-link" bindtap="onShow">重新读取</button>
+    </block>
+    <block wx:elif="{{!editing}}">
+      <view wx:for="{{selfRows}}" wx:key="key" class="profile-row">
+        <text>{{item.label}}</text><text class="profile-value">{{item.value}}</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="profile-row">
+        <text>徒步经验</text>
+        <picker range="{{experienceOptions}}" range-key="label" value="{{experienceIndex}}" data-field="experienceLevel" bindchange="changeOption" aria-label="徒步经验水平">
+          <view>{{experienceOptions[experienceIndex].label}}　›</view>
+        </picker>
+      </view>
+      <view class="profile-row">
+        <text>自评体能</text>
+        <picker range="{{fitnessOptions}}" range-key="label" value="{{fitnessIndex}}" data-field="fitnessLevel" bindchange="changeOption" aria-label="自评体能水平">
+          <view>{{fitnessOptions[fitnessIndex].label}}　›</view>
+        </picker>
+      </view>
+      <view wx:for="{{metricFields}}" wx:key="key" class="profile-field">
+        <label class="profile-row">
+          <text>{{item.label}}</text>
+          <input type="digit" value="{{draft[item.key]}}" data-field="{{item.key}}" bindinput="changeField" placeholder="可留空" aria-label="{{item.label}}，单位{{item.unit}}"/>
+          <text class="field-unit">{{item.unit}}</text>
+        </label>
+        <text wx:if="{{errors[item.key]}}" class="profile-error" role="alert">{{errors[item.key]}}</text>
+      </view>
+      <text wx:if="{{saveError}}" class="profile-error" role="alert">{{saveError}}</text>
+      <button class="trail-primary profile-save" bindtap="save">保存自评</button>
+    </block>
+  </view>
+
+  <view class="trail-card">
+    <view class="trail-heading"><text class="section-title">历史运动表现</text><button class="trail-link" bindtap="openHistory">查看经历</button></view>
+    <block wx:if="{{statsError}}">
+      <text class="profile-error" role="alert">{{statsError}}</text>
+      <button class="trail-link" bindtap="onShow">重新读取</button>
+    </block>
+    <block wx:else>
+      <view class="profile-row"><text>有效徒步记录</text><text class="profile-value">{{stats.totalHikes}} 次</text></view>
+      <text wx:if="{{!stats.totalHikes}}" class="trail-note">暂无有效徒步记录。记录实际走过的路线后，这里会自动更新。</text>
+      <view wx:for="{{statRows}}" wx:key="key" class="stat-row">
+        <view class="trail-heading"><text>{{item.label}}</text><text class="profile-value">{{item.value}}</text></view>
+        <text class="trail-meta">{{item.count}} / {{stats.totalHikes}} 条记录有有效数值</text>
+        <text wx:if="{{item.record}}" class="trail-meta">{{item.record.date}} · {{item.record.name}}</text>
+      </view>
+      <text wx:if="{{dataWarning}}" class="trail-note" role="status">{{dataWarning}}</text>
+      <text class="trail-note">统计来自“经历”中的全部有效记录。最长记录用时是整次徒步用时；历史最佳表现不等于安全能力上限。</text>
+    </block>
+  </view>
+
+  <view wx:if="{{stats && !statsError}}" class="trail-card">
+    <text class="section-title">最近的负重记录</text>
+    <text wx:if="{{!recentLoads.length}}" class="trail-note">暂无负重记录。</text>
+    <view wx:for="{{recentLoads}}" wx:key="key" class="load-row">
+      <view class="row-main"><text>{{item.name}}</text><text class="trail-meta">{{item.date}}</text></view>
+      <text class="profile-value">{{item.loadKg}} kg</text>
+    </view>
+  </view>
+</view>

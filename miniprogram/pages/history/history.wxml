@@ -1,5 +1,8 @@
 <view class="trail-screen tab-screen">
   <block wx:if="{{!draft}}">
+    <navigator class="trail-card profile-entry" url="/pages/profile/profile" aria-label="打开个人能力画像">
+      <text class="section-title">个人能力画像</text><view class="row-arrow" aria-hidden="true"/>
+    </navigator>
     <view wx:if="{{!records.length}}" class="collection-empty">
       <image class="collection-symbol" src="/assets/nav/history.png" mode="aspectFit" aria-hidden="true"/>
       <button class="trail-primary" bindtap="edit">记录第一次徒步</button>

@@ -64,6 +64,14 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 模型调用使用 `deepseek-flash`、启用思考、`reasoning_effort: high` 和 JSON 输出。DeepSeek 已将旧 V4 Flash 的名称映射到 V4.1 Flash。天气服务沿用支持最长 30 天的城市日预报 v7，和风公布的该接口停服日期为 2027 年 6 月 1 日。届时日预报接入需要升级。[DeepSeek 模型更新](https://api-docs.deepseek.com/updates/) · [思考模式](https://api-docs.deepseek.com/guides/thinking_mode/) · [和风城市日预报](https://dev.qweather.com/docs/api/weather/weather-daily-forecast-webapi-v7/) · [和风接口停服时间](https://dev.qweather.com/docs/deprecated/)
 
+## 个人能力画像
+
+从「经历」顶部进入「个人能力画像」，可编辑徒步经验、自评体能、可接受距离、累计爬升、徒步时长和常见负重。所有字段可留空，爬升和负重允许填 0。保存后资料保存在微信本地，取消编辑会丢弃当前草稿。
+
+`utils/userProfile.js` 导出 `read()`、`save(changes)` 和 `getPerformanceStats()`。`save` 接收自评字段的完整表单或部分更新，使用独立对象 Key `trailready_user_profile`，包含 `version`、`selfAssessment` 和 `updatedAt`。数值字段为 `comfortableDistanceKm`、`comfortableAscentM`、`comfortableDurationHours`、`typicalLoadKg`。调用返回 `{ ok: true, ... }` 或 `{ ok: false, error }`，读取损坏数据及未来版本时保留原存储。
+
+历史统计即时读取全部 `trailready_trips.history`，有效经历需要路线名称与合法的已完成日期，个别数值缺失仍计次数。统计返回每项的有效条数、极值来源记录、异常条数和负重记录；旧数值字符串按字段读取兼容。距离为 km，累计爬升为 m，用时为小时，负重为 kg。历史最长记录用时表示整次徒步用时，历史最佳表现仅供参考。画像模块通过本地读写独立运行。
+
 ## 代码与测试
 
 | 工作内容 | 源码位置 |
@@ -78,7 +86,7 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 在仓库根目录运行以下测试。测试使用模拟服务响应，覆盖同名地点、预报缺失、跨日路线衔接、装备匹配、草稿确认、手工计划、进度恢复和写入失败。
 
 ```powershell
-node --test tests/trail-assistant.test.cjs miniprogram/tests/ai-plan.test.cjs miniprogram/tests/packing.test.cjs miniprogram/tests/trip-resume.test.cjs miniprogram/tests/weather.test.cjs
+node --test tests/https-preview.test.cjs tests/trail-assistant.test.cjs miniprogram/tests/ai-plan.test.cjs miniprogram/tests/packing.test.cjs miniprogram/tests/trip-resume.test.cjs miniprogram/tests/weather.test.cjs miniprogram/tests/user-profile.test.cjs miniprogram/tests/profile-page.test.cjs
 ```
 
 `trailready_trips` 保存用户的行程与经历，`trail_gear_closet` 保存个人库存。新用户从空库存开始。已安装旧版本且曾在行程中主动选过的样例物品会保留。清除微信小程序数据会清除本地记录。

@@ -5,6 +5,7 @@
     "pages/carry/carry",
     "pages/gear/gear",
     "pages/history/history",
+    "pages/profile/profile",
     "pages/checklist/checklist",
     "pages/index/index"
   ],

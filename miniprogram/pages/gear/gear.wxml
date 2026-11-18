@@ -1,20 +1,21 @@
 <view class="trail-screen tab-screen">
-  <view class="gear-header">
-    <view class="view-intro">
-      <text class="view-title">我的装备</text>
-      <text class="trail-meta">共 {{count}} 件装备</text>
+  <view wx:if="{{!count}}" class="collection-empty">
+    <image class="collection-symbol" src="/assets/nav/gear.png" mode="aspectFit" aria-hidden="true"/>
+    <navigator class="trail-primary" url="/pages/index/index?tab=gear&edit=new">添加第一件装备</navigator>
+  </view>
+  <block wx:else>
+    <view class="trail-heading">
+      <text class="view-title">{{count}}<text class="unit"> 件装备</text></text>
+      <navigator class="trail-link" url="/pages/index/index?tab=gear&edit=new" aria-label="添加装备">＋ 添加</navigator>
     </view>
-    <navigator class="trail-primary" url="/pages/index/index?tab=gear&edit=new">＋ 添加装备</navigator>
-  </view>
-  <view wx:if="{{!count}}" class="trail-card">
-    <text class="trail-note">添加第一件装备后，就可以在准备行程时选用。</text>
-  </view>
-  <view wx:for="{{groups}}" wx:key="category" wx:for-item="group" class="trail-card">
-    <view class="trail-heading"><text class="section-title">{{group.label}}</text><text class="trail-meta">{{group.items.length}} 件</text></view>
-    <navigator wx:for="{{group.items}}" wx:key="id" class="trail-row"
-      url="/pages/index/index?tab=gear&edit={{item.id}}" aria-label="编辑{{item.name}}">
-      <text class="row-main row-title">{{item.name}}</text>
-      <text class="trail-meta">{{item.weight === null ? '重量待补' : item.weight + ' g'}}　›</text>
-    </navigator>
-  </view>
+    <view wx:for="{{groups}}" wx:key="category" wx:for-item="group" class="trail-card">
+      <text class="section-title">{{group.label}}</text>
+      <navigator wx:for="{{group.items}}" wx:key="id" class="trail-row gear-row"
+        url="/pages/index/index?tab=gear&edit={{item.id}}" aria-label="编辑{{item.name}}，{{item.weight == null ? '重量待补' : item.weight + ' 克'}}">
+        <text class="row-main row-title">{{item.name}}</text>
+        <text class="trail-meta gear-weight">{{item.weight == null ? '重量待补' : item.weight + ' g'}}</text>
+        <view class="row-arrow" aria-hidden="true"/>
+      </navigator>
+    </view>
+  </block>
 </view>

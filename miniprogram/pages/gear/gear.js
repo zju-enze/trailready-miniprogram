@@ -4,6 +4,7 @@ const { GEAR_CATEGORY_OPTIONS } = require('../../utils/mockData');
 Page({
   data: { groups: [], count: 0 },
   onShow() {
+    this.getTabBar?.()?.setData({ route: this.route });
     const gear = loadGear();
     const groups = GEAR_CATEGORY_OPTIONS.map(({ value, label }) => ({
       category: value, label, items: gear.filter(item => item.category === value)

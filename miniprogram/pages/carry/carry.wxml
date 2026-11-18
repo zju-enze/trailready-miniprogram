@@ -1,25 +1,37 @@
 <view class="trail-screen" wx:if="{{trip}}">
-  <view class="view-intro"><text class="trail-meta">{{trip.name}}</text><text class="view-title">这次，带哪些装备？</text></view>
-  <view class="weight-panel"><text class="metric">{{prep.kg}}<text class="unit"> kg</text></text><text>{{prep.missing ? '包内已知重量' : '包内重量'}} · {{prep.pieces}} 件已选</text><text wx:if="{{prep.missing}}">{{prep.missing}} 件重量待补充</text></view>
+  <view class="weight-panel">
+    <text class="trail-meta">{{trip.name}}</text>
+    <view class="weight-line"><text class="metric">{{prep.kg}}<text class="unit"> kg</text></text><text class="trail-meta">{{prep.missing ? '已知包重' : '包重'}}</text></view>
+    <text wx:if="{{prep.missing}}" class="trail-meta">{{prep.missing}} 件重量待补</text>
+  </view>
   <view class="trail-card">
-    <view class="trail-heading"><text class="section-title">本次携带</text><button class="trail-link" bindtap="togglePicker">{{choosing ? '收起装备库' : '＋ 从装备库添加'}}</button></view>
-    <text wx:if="{{!prep.items.length}}" class="trail-note">从装备库选择这次要带的物品。</text>
+    <view class="trail-heading">
+      <text class="section-title">携带 <text class="trail-meta carry-count">{{prep.pieces}} 件</text></text>
+      <button wx:if="{{available.length || prep.items.length}}" class="trail-link" bindtap="togglePicker" aria-expanded="{{choosing}}">{{choosing ? '收起装备库' : '从装备库选取'}}</button>
+      <navigator wx:else class="trail-link" url="/pages/index/index?tab=gear&edit=new">添加装备</navigator>
+    </view>
     <view class="item-block" wx:for="{{prep.items}}" wx:key="id">
-      <view class="trail-heading"><text class="row-title">{{item.name}}</text><button class="trail-muted" data-id="{{item.id}}" data-action="remove" bindtap="changeItem">移除</button></view>
-      <text class="trail-meta">{{item.weight === null ? '单件重量待补充' : item.weight + ' g / 件'}}</text>
+      <view class="trail-heading">
+        <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.weight == null ? '单件重量待补' : item.weight + ' g / 件'}}</text></view>
+        <button class="trail-muted" data-id="{{item.id}}" data-action="remove" bindtap="changeItem" aria-label="移除{{item.name}}">移除</button>
+      </view>
       <view class="trail-controls">
-        <button class="placement" data-id="{{item.id}}" data-action="worn" bindtap="changeItem">{{item.worn ? '穿在身上 ⇄' : '放入包内 ⇄'}}</button>
-        <view class="stepper"><button disabled="{{item.quantity <= 1}}" aria-label="减少数量" data-id="{{item.id}}" data-action="minus" bindtap="changeItem">−</button><text>{{item.quantity}}</text><button aria-label="增加数量" data-id="{{item.id}}" data-action="plus" bindtap="changeItem">＋</button></view>
+        <button class="placement" data-id="{{item.id}}" data-action="worn" bindtap="changeItem" aria-label="{{item.name}}，{{item.worn ? '已穿在身上，切换到包内' : '已放在包内，切换为穿着'}}">{{item.worn ? '穿在身上' : '放在包内'}} ⇄</button>
+        <view class="stepper">
+          <button disabled="{{item.quantity <= 1}}" aria-label="减少{{item.name}}数量" data-id="{{item.id}}" data-action="minus" bindtap="changeItem">−</button>
+          <text>{{item.quantity}}</text>
+          <button aria-label="增加{{item.name}}数量" data-id="{{item.id}}" data-action="plus" bindtap="changeItem">＋</button>
+        </view>
       </view>
     </view>
   </view>
   <view wx:if="{{choosing}}" class="trail-card">
-    <view class="trail-heading"><text class="section-title">从装备库添加</text><button class="trail-link" bindtap="openGear">管理装备 ›</button></view>
-    <text wx:if="{{!available.length}}" class="trail-note">没有可添加的装备。</text>
+    <view class="trail-heading"><text class="section-title">装备库</text><button class="trail-link" bindtap="openGear">管理</button></view>
+    <text wx:if="{{!available.length}}" class="trail-meta">暂无可选装备</text>
     <view class="trail-row" wx:for="{{available}}" wx:key="id">
-      <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.suggested ? '行程推荐 · ' : ''}}{{item.weight === null ? '单件重量待补充' : item.weight + ' g / 件'}}</text></view>
-      <button class="trail-link" data-id="{{item.id}}" data-action="add" bindtap="changeItem">添加</button>
+      <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.suggested ? '推荐 · ' : ''}}{{item.weight == null ? '重量待补' : item.weight + ' g / 件'}}</text></view>
+      <button class="trail-link" data-id="{{item.id}}" data-action="add" bindtap="changeItem" aria-label="添加{{item.name}}">添加</button>
     </view>
   </view>
-  <navigator class="trail-primary" url="/pages/checklist/checklist?trip={{trip.id}}" open-type="redirect">查看行前清单</navigator>
+  <navigator class="trail-primary" url="/pages/checklist/checklist?trip={{trip.id}}" open-type="redirect">行前清单</navigator>
 </view>

@@ -6,8 +6,9 @@
 var WEATHER_PRESETS = require('./mockData.js').WEATHER_PRESETS;
 
 function getDayWeather(day) {
-  var weather = day.fetchedWeather || day.simulatedWeather;
-  if (weather) {
+  var weather = day.fetchedWeather;
+  // 旧版 fetchedWeather 同时存过季节模型和补默认温度的预报。
+  if (weather && weather.source === 'qweather') {
     return {
       tempMin: weather.tempMin,
       tempMax: weather.tempMax,
@@ -52,7 +53,7 @@ function generateMultiDayPackingList(tripData, gearCloset) {
   for (var i = 0; i < allDaysWeather.length; i++) {
     var w = allDaysWeather[i];
     var dayNum = i + 1;
-    if (w.conditions.indexOf('降水') >= 0 || w.conditions.indexOf('潮湿') >= 0) rainyDays.push(dayNum);
+    if (w.conditions.indexOf('降水') >= 0) rainyDays.push(dayNum);
     if (w.conditions.indexOf('降雪') >= 0) snowyDays.push(dayNum);
     if (w.conditions.indexOf('大风') >= 0) windyDays.push(dayNum);
     if (w.conditions.indexOf('严寒') >= 0 || w.conditions.indexOf('降温') >= 0 || w.tempMin < 5) coldDays.push(dayNum);
@@ -62,7 +63,7 @@ function generateMultiDayPackingList(tripData, gearCloset) {
   allDaysWeather.forEach(function (w) { w.conditions.forEach(function (c) { allConditions[c] = true; }); });
   var condKeys = Object.keys(allConditions);
 
-  var hasPrecipitation = condKeys.indexOf('降水') >= 0 || condKeys.indexOf('降雪') >= 0 || condKeys.indexOf('潮湿') >= 0;
+  var hasPrecipitation = condKeys.indexOf('降水') >= 0 || condKeys.indexOf('降雪') >= 0;
   var hasSnow = condKeys.indexOf('降雪') >= 0;
   var hasWind = condKeys.indexOf('大风') >= 0;
   var isAnyCold = condKeys.indexOf('严寒') >= 0 || condKeys.indexOf('降温') >= 0 || minTemp < 8;

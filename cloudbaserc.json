@@ -1,0 +1,11 @@
+{
+  "functionRoot": "./miniprogram/cloudfunctions",
+  "functions": [
+    {
+      "name": "trailAssistant",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 120
+    }
+  ]
+}

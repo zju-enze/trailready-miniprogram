@@ -1,8 +1,9 @@
-.checkmark {
-  flex: none; width: 36rpx; height: 36rpx; line-height: 36rpx; text-align: center;
-  border: 2rpx solid #829c8e; border-radius: 50%; color: white; box-sizing: content-box;
-}
-.checked .checkmark { background: #16715a; border-color: #16715a; }
-.checked .row-title { color: #53685c; }
-.task-line { display: flex; align-items: center; gap: 12rpx; border-top: 1rpx solid #e1e9e3; }
+.check-head { padding: 12rpx 4rpx; }
+.progress-label { display: flex; align-items: baseline; justify-content: space-between; margin-top: 22rpx; }
+.progress-count { color: #086b52; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
+.checkmark { flex: none; width: 38rpx; height: 38rpx; line-height: 38rpx; text-align: center; border: 2rpx solid #75877b; border-radius: 50%; color: white; }
+.checked .checkmark { background: #086b52; border-color: #086b52; }
+.checked .row-title { color: #52665a; }
+.task-line { display: flex; align-items: center; gap: 12rpx; border-top: 1rpx solid #e5e9e6; }
 .task-line .trail-check { flex: 1; min-width: 0; border-top: none; }
+.feedback-action { align-self: center; --td-button-default-color: #52665a; }

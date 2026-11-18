@@ -275,9 +275,10 @@ page {
 
 /* 原生行前准备页面 */
 .trail-screen {
-  min-height: 100vh; box-sizing: border-box; background: #f2f5f1; color: #162d24;
-  display: flex; flex-direction: column; gap: 22rpx; padding: 24rpx;
+  min-height: 100vh; box-sizing: border-box; background: #f6f7f8; color: #16231d;
+  display: flex; flex-direction: column; gap: 20rpx; padding: 24rpx 32rpx;
   padding-bottom: calc(44rpx + env(safe-area-inset-bottom));
+  letter-spacing: 0;
 }
 .trail-screen button {
   margin: 0; padding: 0; width: auto; max-width: 100%; border: 0; border-radius: 0;
@@ -285,33 +286,41 @@ page {
 }
 .trail-screen button::after { border: 0; }
 .trail-screen.tab-screen { padding-bottom: calc(148rpx + env(safe-area-inset-bottom)); }
-.view-intro { display: flex; flex-direction: column; gap: 8rpx; padding: 12rpx 6rpx; }
-.view-title { font-size: 48rpx; font-weight: 700; letter-spacing: -1rpx; line-height: 1.28; }
+.view-intro { display: flex; flex-direction: column; gap: 8rpx; padding: 12rpx 2rpx; }
+.view-title { font-size: 50rpx; font-weight: 650; letter-spacing: -1rpx; line-height: 1.25; }
 .trail-screen .trail-card {
-  box-sizing: border-box; border-radius: 26rpx; padding: 28rpx; background: #fff;
-  border: 1rpx solid #dce6df;
+  box-sizing: border-box; border-radius: 32rpx; padding: 28rpx; background: #fff;
 }
 .trail-heading { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
-.section-title { font-size: 32rpx; font-weight: 650; }
+.section-title { font-size: 32rpx; line-height: 1.4; font-weight: 650; }
 .trail-screen .trail-link, .trail-screen .trail-muted {
-  background: transparent; font-size: 26rpx; color: #10694f; font-weight: 550;
-  padding: 12rpx 2rpx; flex-shrink: 0;
+  display: inline-flex; align-items: center; box-sizing: border-box; min-height: 44px;
+  background: transparent; font-size: 27rpx; color: #086b52; font-weight: 550;
+  padding: 0 4rpx; flex-shrink: 0;
 }
-.trail-screen .trail-muted { color: #63746b; font-weight: 400; }
-.status { color: #175e48; background: #e8f3eb; font-size: 23rpx; padding: 4rpx 16rpx; border-radius: 20rpx; }
-.metric { font-size: 52rpx; font-weight: 650; line-height: 1.5; font-variant-numeric: tabular-nums; }
-.unit { font-weight: 450; color: #53665b; font-size: 26rpx; }
+.trail-screen .trail-muted { color: #52665a; font-weight: 400; }
+.status { color: #245544; background: #edf3ef; font-size: 24rpx; padding: 3rpx 14rpx; border-radius: 999rpx; }
+.metric { font-size: 54rpx; font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.unit { font-weight: 450; color: #52665a; font-size: 26rpx; }
 .trail-screen progress { margin: 14rpx 0 6rpx; }
-.trail-note, .trail-meta { display: block; font-size: 25rpx; color: #53675d; }
+.trail-note, .trail-meta { display: block; font-size: 26rpx; line-height: 1.5; color: #52665a; }
 .trail-note { margin: 16rpx 0; }
 .trail-screen .trail-primary {
-  display: block; background: #12644e; color: white; padding: 20rpx 24rpx; border-radius: 16rpx;
+  display: block; box-sizing: border-box; min-height: 44px;
+  background: #086b52; color: white; padding: 20rpx 28rpx; border-radius: 24rpx;
   text-align: center; font-size: 30rpx; font-weight: 600;
 }
+.trail-screen .trail-primary:active { background: #075a46; }
+.trail-screen button.trail-primary[disabled] { background: #e0e8e3; color: #51665a; }
 .trail-card .trail-primary { margin-top: 22rpx; }
 .trail-screen .trail-check, .trail-row {
   display: flex; align-items: center; gap: 18rpx; width: 100%; box-sizing: border-box; padding: 20rpx 0;
-  border-top: 1rpx solid #e1e9e3; min-height: 84rpx;
+  border-top: 1rpx solid #e5e9e6; min-height: 44px;
 }
 .row-main { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4rpx; }
 .row-title { font-size: 29rpx; overflow-wrap: anywhere; }
+.collection-empty {
+  min-height: 58vh; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 28rpx;
+}
+.collection-symbol { width: 64rpx; height: 64rpx; }

@@ -7,17 +7,17 @@
   <!-- ===== 标签栏 ===== -->
   <view wx:if="{{!scoped}}" class="tab-bar">
     <view class="tab {{activeTab==='trip'?'tab-active':''}}" bindtap="switchTab" data-tab="trip">
-      <text>📋 行程</text>
+      <text>行程</text>
     </view>
     <view class="tab {{activeTab==='gear'?'tab-active':''}}" bindtap="switchTab" data-tab="gear">
-      <text>🎒 装备<text class="tab-count">{{gear.length}}</text></text>
+      <text>装备<text class="tab-count">{{gear.length}}</text></text>
     </view>
     <view class="tab {{activeTab==='packing'?'tab-active':''}}" bindtap="switchTab" data-tab="packing">
-      <text>✅ 清单<text class="tab-count" wx:if="{{result}}">{{packedCount}}/{{result.items.length}}</text></text>
+      <text>清单<text class="tab-count" wx:if="{{result}}">{{packedCount}}/{{result.items.length}}</text></text>
     </view>
     <!-- 🎨 主题一键切换 -->
     <view class="theme-toggle-btn" bindtap="onToggleTheme">
-      <text>{{currentTheme === 'dark' ? '🏔️ 山野' : '🤖 机甲'}}</text>
+      <text>{{currentTheme === 'dark' ? '浅色' : '深色'}}</text>
     </view>
   </view>
 
@@ -27,10 +27,9 @@
   <scroll-view wx:if="{{activeTab==='trip'}}" scroll-y enhanced show-scrollbar="{{false}}" class="tab-scroll">
     <view class="trail-screen trail-editor {{!scoped && currentTheme === 'dark' ? 'editor-dark' : ''}}">
       <view class="trail-card edit-card">
-        <text class="section-title">行程安排</text>
         <view wx:if="{{scoped}}" class="edit-line">
-          <text class="edit-label">行程名称</text>
-          <input class="edit-input" aria-label="行程名称" value="{{tripName}}" bindinput="onTripNameInput" placeholder="我的行程" placeholder-class="edit-placeholder" maxlength="60"/>
+          <text class="edit-label">名称</text>
+          <input class="edit-input" aria-label="行程名称" value="{{tripName}}" bindinput="onTripNameInput" placeholder="行程名称" placeholder-class="edit-placeholder" maxlength="60"/>
         </view>
         <view class="edit-line">
           <text class="edit-label">出发日期</text>
@@ -39,7 +38,7 @@
           </picker>
         </view>
         <view class="edit-line">
-          <text class="edit-label">徒步天数</text>
+          <text class="edit-label">天数</text>
           <view class="edit-duration">
             <button disabled="{{totalDays <= 1}}" bindtap="onDaysMinus" aria-label="减少一天">−</button>
             <input type="number" class="duration-input" value="{{totalDays}}" bindinput="onDaysInput" aria-label="徒步天数"/>
@@ -48,41 +47,51 @@
           </view>
         </view>
         <text wx:if="{{totalDays > 1}}" class="trail-meta">结束日期 · {{dayPlans[totalDays - 1].dateString}}</text>
-        <text wx:if="{{dateExceedsForecast}}" class="trail-note">部分日期超出预报范围，请在临近出发时核对天气。</text>
+        <text wx:if="{{dateExceedsForecast}}" class="trail-note">部分日期暂无预报</text>
       </view>
 
       <view wx:for="{{dayPlans}}" wx:key="dayIndex" class="trail-card edit-card">
         <view class="trail-heading"><text class="section-title">第 {{item.dayIndex}} 天</text><text class="trail-meta">{{item.displayDate}}</text></view>
         <view wx:if="{{scoped}}" class="edit-line">
           <text class="edit-label">起点</text>
-          <input class="edit-input" aria-label="起点" value="{{item.from}}" data-index="{{index}}" data-field="from" bindinput="onDayFieldInput" placeholder="从哪里出发" placeholder-class="edit-placeholder"/>
+          <input class="edit-input" aria-label="起点" value="{{item.from}}" data-index="{{index}}" data-field="from" bindinput="onDayFieldInput" placeholder="出发地点" placeholder-class="edit-placeholder"/>
         </view>
         <view class="edit-line">
           <text class="edit-label">目的地</text>
           <view class="edit-value dest-wrap">
-            <input class="edit-input" aria-label="目的地" placeholder="输入地名或路线终点" placeholder-class="edit-placeholder"
+            <input class="edit-input" aria-label="目的地" placeholder="城市或地名" placeholder-class="edit-placeholder"
               value="{{item.destination}}" data-index="{{index}}" bindinput="onDestinationInput" bindfocus="onDestinationFocus"/>
             <view wx:if="{{suggestions[index]}}" class="suggestions-dropdown" catchtap="noop">
               <view wx:if="{{suggestionsLoadingIndex === index}}" class="suggestions-loading">搜索中…</view>
-              <view wx:elif="{{!suggestions[index].length}}" class="suggestion-no-result">未找到匹配的目的地</view>
+              <view wx:elif="{{!suggestions[index].length}}" class="suggestion-no-result">未找到匹配地点</view>
               <block wx:else>
                 <view wx:for="{{suggestions[index]}}" wx:key="id" wx:for-item="city" wx:for-index="cityIndex"
                   class="suggestion-item" catchtap="onSelectCity" data-day-index="{{index}}" data-city="{{city}}">
-                  <view class="suggestion-info"><text class="suggestion-name">{{city.name}}</text><text class="suggestion-address">{{city.address}}</text></view>
+                  <view class="suggestion-info"><text class="suggestion-name">{{city.name}}</text><text class="suggestion-address">{{city.builtin ? '内置地点 · ' : ''}}{{city.address}}</text></view>
                 </view>
               </block>
             </view>
           </view>
         </view>
-        <text wx:if="{{weatherLoadingIndex === index}}" class="trail-meta">正在查询 {{item.dateString}} 天气…</text>
-        <view wx:elif="{{item.simulatedWeather}}" class="edit-forecast">
-          <text>{{item.fetchedWeather ? '查询预报' : '模拟天气'}} · {{item.simulatedWeather.description}} {{item.simulatedWeather.tempRange}}</text>
-          <text wx:for="{{item.simulatedWeather.conditions}}" wx:key="*this" class="status">{{item}}</text>
+        <block wx:if="{{scoped}}">
+          <view wx:for="{{dayMetrics}}" wx:for-item="metric" wx:for-index="metricIndex" wx:key="key" class="edit-line">
+            <text class="edit-label">{{metric.label}}</text>
+            <input class="edit-input" type="digit" aria-label="{{metric.label}}（{{metric.unit}}），可留空" value="{{item[metric.key] == null ? '' : item[metric.key]}}"
+              data-index="{{index}}" data-field="{{metric.key}}" bindinput="onDayMetricInput" placeholder="—" placeholder-class="edit-placeholder"/>
+            <text class="trail-meta">{{metric.unit}}</text>
+          </view>
+        </block>
+        <text wx:if="{{weatherLoadingIndex === index}}" class="trail-meta">正在查询天气…</text>
+        <view wx:elif="{{item.fetchedWeather}}" class="edit-forecast">
+          <text>和风预报 · {{item.fetchedWeather.description}} {{item.fetchedWeather.tempRange}}</text>
+          <text wx:for="{{item.fetchedWeather.conditions}}" wx:key="*this" class="status">{{item}}</text>
         </view>
+        <button wx:if="{{canQueryWeather && item.destination}}" class="trail-link" data-index="{{index}}" bindtap="refreshWeather">{{item.fetchedWeather ? '更新预报' : '查询预报'}}</button>
+        <text wx:elif="{{!canQueryWeather && !item.fetchedWeather}}" class="trail-meta">预报暂不可用</text>
         <view class="edit-line">
           <text class="edit-label">参考天气</text>
           <picker class="edit-value" range="{{weatherPresetOptions}}" range-key="label" value="{{item.weatherPresetIndex}}" bindchange="onWeatherPresetChange" data-index="{{index}}" aria-label="手动选择参考天气">
-            <view class="edit-picker"><text>{{item.fetchedWeather ? '已采用预报' : weatherPresetOptions[item.weatherPresetIndex].label}}</text><text class="edit-chevron">›</text></view>
+            <view class="edit-picker"><text>{{item.fetchedWeather ? '已采用预报' : (item.weatherPreset ? '手动 · ' : '') + weatherPresetOptions[item.weatherPresetIndex].label}}</text><text class="edit-chevron">›</text></view>
           </picker>
         </view>
         <view class="edit-line">
@@ -96,15 +105,15 @@
         <block wx:if="{{scoped}}">
           <view wx:if="{{item.stayType !== 'daytrip'}}" class="edit-line">
             <text class="edit-label">住宿安排</text>
-            <input class="edit-input" aria-label="住宿安排" value="{{item.stay}}" data-index="{{index}}" data-field="stay" bindinput="onDayFieldInput" placeholder="填写营地或住宿地点" placeholder-class="edit-placeholder"/>
+            <input class="edit-input" aria-label="住宿安排" value="{{item.stay}}" data-index="{{index}}" data-field="stay" bindinput="onDayFieldInput" placeholder="营地或住处" placeholder-class="edit-placeholder"/>
           </view>
           <view class="edit-line">
-            <text class="edit-label">交通接驳</text>
-            <input class="edit-input" aria-label="交通接驳" value="{{item.transport}}" data-index="{{index}}" data-field="transport" bindinput="onDayFieldInput" placeholder="例如：返程末班车" placeholder-class="edit-placeholder"/>
+            <text class="edit-label">接驳</text>
+            <input class="edit-input" aria-label="交通接驳" value="{{item.transport}}" data-index="{{index}}" data-field="transport" bindinput="onDayFieldInput" placeholder="班次或时间" placeholder-class="edit-placeholder"/>
           </view>
         </block>
       </view>
-      <button wx:if="{{scoped}}" class="trail-primary" bindtap="finishTripEdit">{{saveFailed ? '重试保存并返回' : '完成，返回总览'}}</button>
+      <button wx:if="{{scoped}}" class="trail-primary" bindtap="finishTripEdit">{{saveFailed ? '重试保存' : '完成'}}</button>
     </view>
   </scroll-view>
 
@@ -115,13 +124,12 @@
     <view class="section-gap">
 
       <!-- 添加按钮 -->
-      <navigator class="gear-add-btn" url="/pages/index/index?tab=gear&edit=new">＋ 添加装备</navigator>
+      <text wx:if="{{demoGear}}" class="trail-meta">演示装备库</text>
+      <navigator class="gear-add-btn" url="/pages/index/index?tab=gear&edit=new&demo={{demoGear ? 1 : 0}}">添加装备</navigator>
 
       <!-- 空状态 -->
       <view wx:if="{{gear.length===0}}" class="gear-empty">
-        <text class="gear-empty-icon">🎒</text>
         <text class="gear-empty-text">装备库为空</text>
-        <text class="gear-empty-sub">点击上方按钮添加你的第一件装备</text>
       </view>
 
       <!-- 按分类分组 -->
@@ -129,7 +137,6 @@
         <view class="gear-group">
           <!-- 分类标题 -->
           <view class="gear-cat-head" bindtap="onToggleCategory" data-cat="{{item.category}}">
-            <text class="gear-cat-icon">{{item.icon}}</text>
             <text class="gear-cat-label">{{item.label}}</text>
             <text class="gear-cat-meta">{{item.items.length}}件 · {{item.totalWeight}}g</text>
             <text class="gear-cat-arrow">{{item.expanded ? '▴' : '▾'}}</text>
@@ -147,10 +154,8 @@
               <view class="gear-item-meta">
                 <text class="gear-item-weight">{{gi.weight === null ? '重量待补' : gi.weight + ' g'}}</text>
                 <view class="gear-item-actions">
-                  <navigator class="gear-action-btn gear-action-edit" url="/pages/index/index?tab=gear&edit={{gi.id}}" aria-label="编辑{{gi.name}}">编辑</navigator>
-                  <view class="gear-action-btn gear-action-del" bindtap="onDeleteGear" data-id="{{gi.id}}">
-                    <text>🗑️</text>
-                  </view>
+                  <navigator class="gear-action-btn gear-action-edit" url="/pages/index/index?tab=gear&edit={{gi.id}}&demo={{demoGear ? 1 : 0}}" aria-label="编辑{{gi.name}}">编辑</navigator>
+                  <button class="gear-action-btn gear-action-del" bindtap="onDeleteGear" data-id="{{gi.id}}" aria-label="删除{{gi.name}}">删除</button>
                 </view>
               </view>
             </view>
@@ -160,7 +165,7 @@
 
       <!-- 底部统计 -->
       <view wx:if="{{gear.length>0}}" class="gear-footer">
-        <text>共 {{gearCount}} 件装备 · 已知重量 {{gearWeight}} g</text>
+        <text>{{gearCount}} 件 · 已知 {{gearWeight}} g</text>
       </view>
     </view>
   </scroll-view>
@@ -173,20 +178,17 @@
 
       <!-- 空状态：未配置目的地 -->
       <view wx:if="{{!result}}" class="packing-empty">
-        <text class="packing-empty-icon">📦</text>
         <text class="packing-empty-title">暂无打包清单</text>
-        <text class="packing-empty-desc">请在左侧输入正确的地点以刷新天气与清单。</text>
       </view>
 
       <block wx:if="{{result}}">
         <!-- 行程摘要 -->
         <view class="glass-card">
           <view class="card-head">
-            <text class="card-head-icon">🗺️</text>
             <text class="card-head-label">行程摘要</text>
           </view>
           <view class="summary-row">
-            <text class="summary-label">行程时间</text>
+            <text class="summary-label">日期</text>
             <text class="summary-value">{{tripDateRange}}</text>
           </view>
           <view class="summary-row">
@@ -194,14 +196,9 @@
             <text class="summary-value">{{destinationChain || '未设定'}}</text>
           </view>
           <view class="summary-row">
-            <text class="summary-label">住宿模式</text>
+            <text class="summary-label">住宿</text>
             <text class="summary-value">{{smartLodgeHint}}</text>
           </view>
-        </view>
-
-        <!-- 智能宿营看板 -->
-        <view wx:if="{{smartBoardText}}" class="smart-board">
-          <text>{{smartBoardText}}</text>
         </view>
 
         <!-- 重量与温度仪表盘 -->
@@ -209,20 +206,19 @@
           <view class="dashboard-grid">
             <view class="dash-item dash-weight">
               <text class="dash-num accent">{{totalWeightDisplay}}</text>
-              <text class="dash-label">预估总重</text>
+              <text class="dash-label">已知总重</text>
             </view>
             <view class="dash-item dash-temp">
               <text class="dash-num">{{result.climateSummary.minTemp === null ? '待核实' : result.climateSummary.minTemp + '~' + result.climateSummary.maxTemp + '°C'}}</text>
-              <text class="dash-label">全程温度范围</text>
+              <text class="dash-label">参考气温</text>
             </view>
           </view>
         </view>
 
-        <!-- 气候挑战 -->
+        <!-- 天气 -->
         <view wx:if="{{result.climateSummary.challenges.length>0}}" class="glass-card climate-card">
           <view class="card-head">
-            <text class="card-head-icon">🌍</text>
-            <text class="card-head-label">气候挑战</text>
+            <text class="card-head-label">天气</text>
           </view>
           <view wx:for="{{result.climateSummary.challenges}}" wx:key="*this" class="climate-item">
             <text>{{item}}</text>
@@ -232,7 +228,6 @@
         <!-- 警告 -->
         <view wx:if="{{result.warnings.length>0}}" class="warnings-card">
           <view class="card-head">
-            <text class="card-head-icon">⚠️</text>
             <text class="card-head-label">注意事项</text>
           </view>
           <view wx:for="{{result.warnings}}" wx:key="*this" class="warning-item">
@@ -252,14 +247,13 @@
           <view class="progress-bar">
             <view class="progress-fill" style="width: {{packedPercent}}%"></view>
           </view>
-          <text class="progress-text">已打包 {{packedCount}}/{{result.items.length}} 件 · {{packedWeight}}g/{{totalWeightDisplay}}（{{packedPercent}}%）</text>
+          <text class="progress-text">已打包 {{packedCount}} / {{result.items.length}} 件 · {{packedWeight}} g</text>
         </view>
 
         <!-- 打包清单 —— 按分类分组 -->
         <block wx:for="{{packingGrouped}}" wx:key="category">
           <view class="pack-group">
             <view class="pack-cat-head" bindtap="onTogglePackCategory" data-cat="{{item.category}}">
-              <text class="pack-cat-icon">{{item.icon}}</text>
               <text class="pack-cat-label">{{item.label}}</text>
               <text class="pack-cat-meta">{{item.packed}}/{{item.total}}件 · {{item.catWeight}}g</text>
               <text class="gear-cat-arrow">{{item.expanded ? '▴' : '▾'}}</text>
@@ -281,17 +275,16 @@
           </view>
         </block>
       </block>
-      <t-button block variant="outline" open-type="feedback">反馈行前清单</t-button>
+      <t-button block variant="outline" open-type="feedback">意见反馈</t-button>
     </view>
   </scroll-view>
 
   <scroll-view wx:if="{{directGearEdit}}" scroll-y enhanced show-scrollbar="{{false}}" class="tab-scroll">
     <view class="trail-screen trail-editor">
       <view class="trail-card edit-card">
-        <text class="section-title">装备信息</text>
         <view class="edit-line">
           <text class="edit-label">名称</text>
-          <input class="edit-input" aria-label="装备名称，必填" placeholder="例如：防雨外套" placeholder-class="edit-placeholder"
+          <input class="edit-input" aria-label="装备名称，必填" placeholder="装备名称" placeholder-class="edit-placeholder"
             value="{{formName}}" bindinput="onFormNameInput"/>
         </view>
         <view class="edit-line">
@@ -303,15 +296,15 @@
         <view class="edit-line">
           <text class="edit-label">单件重量</text>
           <view class="edit-value gear-weight-field">
-            <input class="edit-input" type="digit" aria-label="单件重量，单位克，可留空" placeholder="可留空" placeholder-class="edit-placeholder"
+            <input class="edit-input" type="digit" aria-label="单件重量，单位克，可留空" placeholder="—" placeholder-class="edit-placeholder"
               value="{{formWeight}}" bindinput="onFormWeightInput"/>
             <text class="gear-unit">g</text>
           </view>
         </view>
       </view>
       <view class="trail-card edit-card">
-        <view class="trail-heading"><text class="section-title">装备标签</text><text class="trail-meta">{{formTags.length ? '已选 ' + formTags.length + ' 项' : '可多选'}}</text></view>
-        <view class="gear-tags">
+        <button class="gear-tag-toggle" bindtap="toggleTags" aria-expanded="{{tagsOpen}}"><text class="edit-label">标签</text><text class="tag-selection">{{formTags.length ? '已选 ' + formTags.length + ' 项' : '选填'}}</text><text class="edit-chevron">{{tagsOpen ? '⌃' : '⌄'}}</text></button>
+        <view wx:if="{{tagsOpen}}" class="gear-tags">
           <button wx:for="{{allTags}}" wx:key="*this" wx:for-item="tag" class="gear-tag {{utils.includes(formTags,tag) ? 'selected' : ''}}"
             data-tag="{{tag}}" bindtap="onToggleTag" aria-label="{{tag}}，{{utils.includes(formTags,tag) ? '已选' : '未选'}}">{{tag}}</button>
         </view>
@@ -319,9 +312,9 @@
       <text wx:if="{{formError}}" class="gear-error" role="alert">{{formError}}</text>
       <view class="gear-form-actions">
         <button class="gear-cancel" bindtap="cancelGearEdit">取消</button>
-        <button class="trail-primary" bindtap="onSaveGear">{{editingId ? '保存修改' : '加入装备库'}}</button>
+        <button class="trail-primary" bindtap="onSaveGear">保存</button>
       </view>
-      <button wx:if="{{editingId}}" class="gear-remove" data-id="{{editingId}}" bindtap="onDeleteGear">删除这件装备</button>
+      <button wx:if="{{editingId}}" class="gear-remove" data-id="{{editingId}}" bindtap="onDeleteGear">删除装备</button>
     </view>
   </scroll-view>
 

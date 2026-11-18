@@ -37,15 +37,35 @@ function newTrip(name) {
   };
 }
 
-function loadGear() {
-  const raw = wx.getStorageSync('trail_gear_closet');
+function gearStorageKey(demo) {
+  return demo ? 'trailready_demo_gear' : 'trail_gear_closet';
+}
+
+function saveGear(gear, demo = false) {
+  try {
+    wx.setStorageSync(gearStorageKey(demo), JSON.stringify(gear));
+    return true;
+  } catch (error) {
+    console.warn('装备数据保存失败', error);
+    wx.showToast({ title: '装备保存失败，请重试', icon: 'none' });
+    return false;
+  }
+}
+
+function loadGear(demo = false) {
+  const raw = wx.getStorageSync(gearStorageKey(demo));
   if (raw) {
     try {
       const gear = JSON.parse(raw);
       if (Array.isArray(gear)) return gear;
     } catch (error) { console.warn('无法读取装备库', error); }
   }
-  return DEFAULT_GEAR;
+  if (demo) return DEFAULT_GEAR;
+  // 旧版本只保存用户选入行程的装备 ID，可能从未写入装备库。
+  const plans = read().trips;
+  const selected = DEFAULT_GEAR.filter(item => plans.some(trip => trip.carry[item.id]));
+  if (!raw && selected.length) saveGear(selected);
+  return selected;
 }
 
 function preparation(trip, gear) {
@@ -72,4 +92,4 @@ function preparation(trip, gear) {
     pieces: items.reduce((sum, i) => sum + i.quantity, 0), missing, kg: (grams / 1000).toFixed(2) };
 }
 
-module.exports = { read, save, update, newTrip, loadGear, preparation };
+module.exports = { read, save, update, newTrip, loadGear, saveGear, preparation };

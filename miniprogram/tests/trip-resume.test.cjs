@@ -26,6 +26,35 @@ function event(dataset, value) {
   return { currentTarget: { dataset }, detail: { value } };
 }
 
+test('每日计划里程、爬升和耗时支持小数、零、留空及冷启动恢复', () => {
+  const trip = trips.newTrip('九溪两日');
+  const disk = new Map([['trailready_trips', { activeId: trip.id, trips: [trip] }]]);
+  global.wx = {
+    getStorageSync: key => structuredClone(disk.get(key)),
+    setStorageSync: (key, value) => disk.set(key, structuredClone(value)),
+    setNavigationBarTitle() {}, showToast() {}
+  };
+  const query = { trip: trip.id, tab: 'trip' };
+  let editor = open('index', query);
+  assert.equal(editor.data.dayPlans[0].distance, undefined);
+  editor.onDaysPlus();
+  const metric = (index, field, value) => editor.onDayMetricInput(event({ index, field }, value));
+  metric(0, 'distance', '8.');
+  assert.equal(editor.data.dayPlans[0].distance, '8.');
+  metric(0, 'distance', '8.75');
+  metric(0, 'ascent', '0');
+  metric(1, 'hours', '.5');
+  assert.equal(metric(0, 'distance', '-2'), '8.75');
+  assert.equal(metric(0, 'distance', '8..75'), '8.75');
+  const [first, second] = open('overview').data.trip.days;
+  assert.deepEqual([first.distance, first.ascent, first.hours], [8.75, 0, null]);
+  assert.deepEqual([second.distance, second.ascent, second.hours], [null, null, 0.5]);
+  editor = open('index', query);
+  assert.equal(editor.data.dayPlans[1].hours, 0.5);
+  metric(1, 'hours', '');
+  assert.equal(open('overview').data.trip.days[1].hours, null);
+});
+
 test('手工经历可以独立于计划保存，重开后能修改及删除', () => {
   const disk = new Map();
   global.wx = {
@@ -52,8 +81,8 @@ test('手工经历可以独立于计划保存，重开后能修改及删除', ()
   assert.equal(open('history').data.records.length, 0);
 });
 
-test('没有行程也可从装备页添加、修改和删除，返回后刷新独立装备库', () => {
-  const disk = new Map([['trail_gear_closet', '[]']]);
+test('新用户装备库为空，没有行程也可添加、修改和删除自己的装备', () => {
+  const disk = new Map();
   let back = 0;
   global.wx = {
     getStorageSync: key => structuredClone(disk.get(key)),
@@ -83,6 +112,37 @@ test('没有行程也可从装备页添加、修改和删除，返回后刷新�
   assert.equal(trips.read().trips.length, 0);
 });
 
+test('保留旧行程选用过的样例装备，已有库存和个人清单与演示独立', () => {
+  const disk = new Map();
+  global.wx = {
+    getStorageSync: key => structuredClone(disk.get(key)),
+    setStorageSync: (key, value) => disk.set(key, structuredClone(value)),
+    setNavigationBarTitle() {}, navigateBack() {}
+  };
+  const first = trips.newTrip('第一趟');
+  const second = trips.newTrip('第二趟');
+  first.id = 'first';
+  second.id = 'second';
+  first.carry['1'] = { quantity: 2, packed: true, worn: false };
+  second.carry['13'] = { quantity: 1, packed: false, worn: false };
+  disk.set('trailready_trips', { activeId: first.id, trips: [first, second] });
+  assert.deepEqual(trips.loadGear().map(item => item.id), ['1', '13']);
+  assert.equal(open('checklist').data.prep.items[0].packed, true);
+  delete first.carry['1'];
+  disk.set('trailready_trips', { activeId: first.id, trips: [first, second] });
+  assert.deepEqual(trips.loadGear().map(item => item.id), ['1', '13']);
+
+  const demo = open('index');
+  assert.ok(demo.data.gearCount > 2);
+  const editor = open('index', { tab: 'gear', edit: '1', demo: '1' });
+  editor.onFormNameInput(event({}, '编辑演示物品'));
+  editor.onSaveGear();
+  assert.equal(trips.loadGear(true)[0].name, '编辑演示物品');
+  assert.notEqual(trips.loadGear()[0].name, '编辑演示物品');
+  disk.set('trail_gear_closet', '[]');
+  assert.deepEqual(trips.loadGear(), []);
+});
+
 test('通过页面准备两趟行程，冷启动恢复当前行程及各自的装备与接驳进度', () => {
   const disk = new Map();
   let modalText = '九溪一日';
@@ -106,6 +166,12 @@ test('通过页面准备两趟行程，冷启动恢复当前行程及各自的�
   editor.onStartDateChange({ detail: { value: '2027-04-17' } });
 
   let carry = open('carry', { trip: id });
+  assert.deepEqual(carry.data.available, []);
+  const gearEditor = open('index', { tab: 'gear', edit: 'new' });
+  gearEditor.onFormNameInput(event({}, '我的头灯'));
+  gearEditor.onFormWeightInput(event({}, '85'));
+  gearEditor.onSaveGear();
+  carry.onShow();
   const gearId = carry.data.available[0].id;
   carry.changeItem(event({ id: gearId, action: 'add' }));
   carry.changeItem(event({ id: gearId, action: 'plus' }));

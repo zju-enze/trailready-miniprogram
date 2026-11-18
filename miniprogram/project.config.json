@@ -22,9 +22,22 @@
     "condition": false
   },
   "compileType": "miniprogram",
+  "cloudfunctionRoot": "cloudfunctions/",
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [
+      {
+        "value": "cloudfunctions",
+        "type": "folder"
+      },
+      {
+        "value": "utils/config.js",
+        "type": "file"
+      },
+      {
+        "value": "miniprogram_npm/tweetnacl",
+        "type": "folder"
+      },
       {
         "value": ".venv",
         "type": "folder"

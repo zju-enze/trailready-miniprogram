@@ -1,22 +1,69 @@
+.overview .plan-card { display: flex; flex-direction: column; gap: 0; }
 .trip-hero {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: 330rpx;
+  min-height: 474rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
   overflow: hidden;
-  border-radius: 32rpx;
-  background: #254438;
-  color: white;
+  border-radius: 36rpx;
+  background: #52665a;
 }
-.hero-photo, .hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
-.hero-shade { background: linear-gradient(0deg, rgba(13,40,32,.91), rgba(10,31,25,.07)); }
-.hero-content { position: relative; padding: 34rpx; display: flex; flex-direction: column; }
-.hero-kicker { font-size: 23rpx; letter-spacing: 2rpx; font-weight: 600; }
-.hero-title { font-size: 52rpx; font-weight: 700; line-height: 1.25; margin: 12rpx 0; overflow-wrap: anywhere; }
-.hero-date { font-size: 25rpx; }
-.trail-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0 8rpx; color: #53655c; font-size: 26rpx; }
-.trail-entry { width: 100%; display: flex; align-items: center; justify-content: space-between; }
-.day-num {
-  flex: none; width: 48rpx; height: 48rpx; line-height: 48rpx; text-align: center;
-  border-radius: 50%; background: #e9f2ec; color: #18674f; font-weight: 600;
+.trip-hero.has-trip { min-height: 360rpx; }
+.hero-photo, .hero-shade { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; }
+.hero-shade { background: linear-gradient(180deg, transparent 40%, rgba(18,40,31,.28)); }
+.hero-panel {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8rpx 24rpx 0;
+  border-radius: 28rpx;
+  border: 1rpx solid rgba(255,255,255,.85);
+  background: rgba(250,253,250,.93);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 #fff, 0 6rpx 20rpx rgba(17,40,28,.12);
 }
+.search-line, .date-line, .date-value, .entry-meta, .trip-choice, .reuse-line { display: flex; align-items: center; gap: 16rpx; }
+.search-line { min-height: 98rpx; }
+.plan-destination { min-width: 0; flex: 1; height: 88rpx; color: #16231d; font-size: 38rpx; font-weight: 650; letter-spacing: -1rpx; }
+.search-placeholder { color: #314a3f; }
+.overview .hero-panel .search-button {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  padding: 0; margin: 0; border-radius: 50%; background: #086b52; color: white;
+}
+.search-symbol { position: relative; box-sizing: border-box; width: 28rpx; height: 28rpx; border-radius: 50%; border: 3rpx solid white; margin: -4rpx 4rpx 0 0; }
+.search-symbol::after { content: ''; position: absolute; background: white; width: 12rpx; height: 3rpx; right: -9rpx; bottom: -4rpx; transform: rotate(45deg); border-radius: 2rpx; }
+.date-line { min-height: 44px; justify-content: space-between; border-top: 1rpx solid #d7e2db; color: #44584e; font-size: 25rpx; }
+.date-value, .entry-meta { font-variant-numeric: tabular-nums; }
+.date-value { color: #16231d; }
+.chevron { display: inline-block; flex: none; width: 12rpx; height: 12rpx; border-right: 3rpx solid currentColor; border-top: 3rpx solid currentColor; transform: rotate(45deg); margin-right: 5rpx; }
+.chevron.down { transform: rotate(135deg); }
+.chevron.up { transform: rotate(-45deg); }
+.reuse-line { min-height: 88rpx; gap: 24rpx; justify-content: space-between; padding: 4rpx 8rpx 0; color: #52665a; font-size: 26rpx; }
+.reuse-line text { min-width: 0; overflow-wrap: anywhere; }
+.reuse-line switch { flex: none; }
+.overview .results { margin-top: 18rpx; }
+.overview .data-use { min-height: 44px; display: flex; align-items: center; gap: 8rpx; color: #52665a; font-size: 25rpx; }
+.info-symbol { height: 24rpx; width: 24rpx; border-radius: 50%; border: 2rpx solid currentColor; font-size: 18rpx; line-height: 24rpx; text-align: center; font-weight: 650; }
+.overview .place-choice, .overview .typed-place { display: flex; width: 100%; align-items: center; justify-content: space-between; min-height: 44px; }
+.overview .place-choice { padding: 22rpx 0; border-top: 1rpx solid #e5e9e6; }
+.overview .manual-new { min-height: 44px; align-self: center; padding: 12rpx 20rpx; color: #086b52; font-size: 28rpx; font-weight: 600; }
+.trip-heading { display: flex; align-items: center; gap: 20rpx; padding: 8rpx 6rpx 0; }
+.trip-identity { flex: 1; min-width: 0; }
+.hero-title { display: block; font-size: 44rpx; line-height: 1.25; font-weight: 650; color: #16231d; overflow-wrap: anywhere; }
+.trip-choice { min-height: 44px; }
+.trip-identity > .trail-meta { margin-top: 6rpx; }
+.overview .prep-entry, .overview .trail-entry, .overview .archive-toggle { width: 100%; min-height: 44px; }
+.overview .prep-entry { display: block; padding: 8rpx 0 22rpx; }
+.overview .prep-entry progress { margin: 18rpx 0 12rpx; }
+.overview .trail-entry, .overview .archive-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14rpx; }
+.overview .trail-entry { border-top: 1rpx solid #e5e9e6; padding-top: 14rpx; }
+.entry-meta { color: #52665a; font-size: 25rpx; }
+.itinerary { align-items: flex-start; }
+.itinerary:last-child { padding-bottom: 0; }
+.day-num { border-left: 3rpx solid #086b52; padding-left: 10rpx; min-width: 25rpx; color: #086b52; font-size: 28rpx; font-weight: 650; }
+.route-stats { display: flex; flex-wrap: wrap; gap: 4rpx 18rpx; }
+.overview .plan-details { padding-top: 8rpx; padding-bottom: 8rpx; }
+.overview .archive-toggle { padding: 10rpx 0; }

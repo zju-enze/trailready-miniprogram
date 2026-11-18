@@ -1,9 +1,16 @@
-.record-stats { display:flex; flex-wrap:wrap; gap:16rpx; color:#185d49; font-size:27rpx; }
-.record-form { display:flex; flex-direction:column; gap:18rpx; font-size:27rpx; }
-.record-form input, .record-form textarea, .record-picker {
-  box-sizing:border-box; width:100%; margin-top:6rpx; padding:14rpx 18rpx;
-  border:1rpx solid #dce6df; border-radius:14rpx; background:#f3f7f3; color:#162d24;
-}
-.record-form input { height:78rpx; }
-.record-form textarea { min-height:100rpx; }
-.record-error { color:#a43b38; }
+.trail-screen .record-list { padding-top: 0; padding-bottom: 0; }
+.trail-screen .record-entry { display: block; width: 100%; min-height: 48px; padding: 24rpx 0; }
+.record-entry + .record-entry, .field-row + .field-row { border-top: 1rpx solid #e5e9e6; }
+.record-entry .section-title { overflow-wrap: anywhere; }
+.row-arrow { flex: none; width: 10rpx; height: 10rpx; border: solid #728277; border-width: 2rpx 2rpx 0 0; transform: rotate(45deg); }
+.record-stats { display: flex; flex-wrap: wrap; column-gap: 20rpx; color: #52665a; font-size: 26rpx; font-variant-numeric: tabular-nums; }
+.record-stats text, .record-note { margin-top: 6rpx; }
+.record-note { display: block; font-size: 27rpx; white-space: pre-wrap; overflow-wrap: anywhere; }
+.record-form { display: flex; flex-direction: column; gap: 22rpx; font-size: 29rpx; }
+.field-row { display: flex; align-items: center; min-height: 48px; gap: 14rpx; }
+.field-row input, .field-row picker { flex: 1; min-width: 0; min-height: 44px; text-align: right; }
+.field-row picker view { line-height: 44px; }
+.field-unit { color: #52665a; font-size: 25rpx; }
+.record-form textarea { width: 100%; box-sizing: border-box; min-height: 64px; }
+.record-error, .trail-screen .remove-record { color: #a44534; }
+.trail-screen .remove-record { align-self: center; }

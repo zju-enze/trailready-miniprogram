@@ -12,6 +12,7 @@ const metrics = [
 Page({
   data: { records: [], draft: null, today: '', efforts, metrics },
   onShow() {
+    this.getTabBar?.()?.setData({ route: this.route });
     const records = (trips.read().history || []).slice().sort((a, b) => b.date.localeCompare(a.date));
     this.setData({ records, today: getTodayString() });
   },

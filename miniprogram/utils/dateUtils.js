@@ -33,7 +33,8 @@ function formatDateRange(startDate, days) {
     return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
   }
 
-  return fmt(start) + ' — ' + fmt(end) + '（共' + days + '天）';
+  if (days === 1) return fmt(start);
+  return fmt(start) + ' — ' + fmt(end) + ' · ' + days + ' 天';
 }
 
 module.exports = {

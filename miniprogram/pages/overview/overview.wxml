@@ -1,41 +1,73 @@
-<view class="trail-screen tab-screen">
-  <view class="trip-hero">
-    <image src="/assets/mountain.jpg" mode="aspectFill" class="hero-photo"/>
-    <view class="hero-shade"/>
-    <view class="hero-content">
-      <text class="hero-kicker">TrailReady</text>
-      <text class="hero-title">{{trip ? trip.name : '准备下一次山行'}}</text>
-      <text wx:if="{{trip}}" class="hero-date">{{dateRange}}</text>
+<view class="trail-screen tab-screen overview">
+  <view class="plan-card">
+    <view class="trip-hero {{trip ? 'has-trip' : ''}}">
+      <image src="/assets/mountain.jpg" mode="aspectFill" class="hero-photo" aria-hidden="true"/>
+      <view class="hero-shade"/>
+      <view class="hero-panel">
+        <view class="search-line">
+          <input class="plan-destination" aria-label="目的地和所在城市" value="{{destination}}" placeholder="输入徒步目的地" placeholder-class="search-placeholder" maxlength="100" confirm-type="search" bindinput="changeDestination" bindconfirm="findDestination"/>
+          <button class="trail-primary search-button" aria-label="查找目的地" loading="{{searching}}" disabled="{{searching}}" bindtap="findDestination"><view wx:if="{{!searching}}" class="search-symbol" aria-hidden="true"/></button>
+        </view>
+        <picker mode="date" value="{{planStart}}" bindchange="changePlanStart" aria-label="出发日期 {{planStart}}">
+          <view class="date-line"><text>出发日期</text><view class="date-value"><text>{{planStart}}</text><view class="chevron" aria-hidden="true"/></view></view>
+        </picker>
+      </view>
+    </view>
+    <label wx:if="{{trip}}" class="reuse-line"><text>参考「{{trip.name}}」行程</text><switch aria-label="参考当前行程" checked="{{useCurrentDays}}" color="#086b52" bindchange="useCurrentDays"/></label>
+    <view wx:if="{{places !== null}}" class="trail-card results">
+      <text class="section-title">{{places.length ? '选地点，生成方案' : '无匹配地点'}}</text>
+      <button class="data-use" bindtap="showDataUse" aria-label="查看 AI 使用的装备和经历数据">AI 将参考装备与徒步经历 <view class="info-symbol" aria-hidden="true">i</view></button>
+      <button wx:for="{{places}}" wx:key="id" class="trail-row place-choice" data-index="{{index}}" bindtap="openPlanner">
+        <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.address}}</text></view><view class="chevron" aria-hidden="true"/>
+      </button>
+      <button wx:if="{{!places.length}}" class="trail-link typed-place" bindtap="openPlanner">按「{{destination}}」规划 <view class="chevron" aria-hidden="true"/></button>
     </view>
   </view>
-  <view wx:if="{{!trip}}" class="trail-card">
-    <view class="section-title">我的行程</view>
-    <view class="trail-note">记下路线、选好本次装备，出发前回来逐项核对。</view>
-    <button class="trail-primary" bindtap="createTrip">新建行程</button>
-  </view>
+
+  <button wx:if="{{!trip}}" class="manual-new" bindtap="createTrip">＋ 手动新建行程</button>
   <block wx:else>
-    <view class="trail-toolbar">
-      <picker wx:if="{{choices.length > 1}}" range="{{choices}}" range-key="name" value="{{selectedIndex}}" bindchange="selectTrip"><view class="trail-link">切换行程 ⌄</view></picker>
-      <text wx:else>当前行程</text>
-      <button class="trail-link" bindtap="createTrip">＋ 新建行程</button>
+    <view class="trip-heading">
+      <view class="trip-identity">
+        <picker wx:if="{{choices.length > 1}}" range="{{choices}}" range-key="name" value="{{selectedIndex}}" bindchange="selectTrip" aria-label="切换当前行程">
+          <view class="trip-choice"><text class="hero-title">{{trip.name}}</text><view class="chevron down" aria-hidden="true"/></view>
+        </picker>
+        <text wx:else class="hero-title">{{trip.name}}</text>
+        <text class="trail-meta">{{dateRange}}</text>
+      </view>
+      <button class="trail-link" bindtap="createTrip" aria-label="手动新建行程">＋ 新建</button>
+    </view>
+    <view class="trail-card prep-card">
+      <button class="prep-entry" bindtap="openChecklist">
+        <view class="trail-heading"><text class="section-title">行前清单</text><view class="entry-meta"><text>{{prep.done}} / {{prep.total}}</text><view class="chevron" aria-hidden="true"/></view></view>
+        <progress percent="{{prep.percent}}" activeColor="#086b52" backgroundColor="#e5e9e6" stroke-width="3"/>
+        <text wx:if="{{prep.next}}" class="trail-meta">待核对 · {{prep.next}}</text>
+      </button>
+      <button class="trail-entry" bindtap="openCarry"><text class="section-title">携带装备</text><view class="entry-meta"><text>{{prep.pieces}} 件 · {{prep.missing ? '已知' : '包内'}} {{prep.kg}} kg</text><view class="chevron" aria-hidden="true"/></view></button>
     </view>
     <view class="trail-card">
-      <view class="trail-heading"><text class="section-title">行前准备</text><text class="status">{{!prep.total ? '待添加' : prep.remaining ? '准备中' : '已核对'}}</text></view>
-      <view class="metric">{{prep.done}}<text class="unit"> / {{prep.total}} 项已核对</text></view>
-      <progress percent="{{prep.percent}}" activeColor="#16715a" backgroundColor="#e1eae4" stroke-width="4"/>
-      <view wx:if="{{prep.next}}" class="trail-note">待核对 · {{prep.next}}</view>
-      <button class="trail-primary" bindtap="openChecklist">{{prep.remaining ? '继续准备' : '查看行前清单'}}</button>
-    </view>
-    <button class="trail-card trail-entry" bindtap="openCarry">
-      <text class="section-title">本次装备</text><text class="trail-meta">{{prep.pieces}} 件 · {{prep.missing ? '已知' : '包内'}} {{prep.kg}} kg　›</text>
-    </button>
-    <view class="trail-card">
-      <view class="trail-heading"><text class="section-title">每日行程</text><button class="trail-link" bindtap="editTrip">编辑安排 ›</button></view>
-      <view class="trail-row" wx:for="{{trip.days}}" wx:key="dateString">
-        <text class="day-num">{{index + 1}}</text><view class="row-main"><text class="row-title">{{item.from ? item.from + ' → ' : ''}}{{item.destination || '待填写目的地'}}</text><text class="trail-meta">{{item.displayDate}}</text>
-          <text wx:if="{{item.stay}}" class="trail-meta">住宿 · {{item.stay}}</text><text wx:if="{{item.transport}}" class="trail-meta">接驳 · {{item.transport}}</text>
+      <view class="trail-heading"><text class="section-title">每日路线</text><button class="trail-link" bindtap="editTrip">编辑</button></view>
+      <view class="trail-row itinerary" wx:for="{{trip.days}}" wx:key="dateString">
+        <text class="day-num">{{index + 1}}</text><view class="row-main"><text class="row-title">{{item.from ? item.from + ' → ' : ''}}{{item.destination || '目的地待填'}}</text><text class="trail-meta">{{item.displayDate}}</text>
+          <view wx:if="{{item.distance != null || item.ascent != null || item.hours != null}}" class="route-stats trail-meta">
+            <text wx:if="{{item.distance != null}}">{{item.distance}} km</text>
+            <text wx:if="{{item.ascent != null}}">爬升 {{item.ascent}} m</text>
+            <text wx:if="{{item.hours != null}}">{{item.hours}} 小时</text>
+          </view>
+          <text wx:if="{{item.stay || item.stayType === 'pending'}}" class="trail-meta">住宿 · {{item.stay || '待确认'}}</text><text wx:if="{{item.transport}}" class="trail-meta">接驳 · {{item.transport}}</text>
         </view>
       </view>
+    </view>
+    <view wx:if="{{hasSavedPlan}}" class="trail-card plan-details">
+      <navigator class="archive-toggle" url="/pages/assistant/assistant?trip={{trip.id}}" aria-label="查看原始 AI 方案的地图与天气">
+        <text class="section-title">原始 AI 方案</text><view class="entry-meta">地图与天气 <view class="chevron" aria-hidden="true"/></view>
+      </navigator>
+    </view>
+    <view wx:elif="{{trip.aiPlan}}" class="trail-card plan-details">
+      <button class="archive-toggle" bindtap="togglePlan" aria-expanded="{{planExpanded}}"><text class="section-title">原始 AI 方案</text><view class="chevron {{planExpanded ? 'up' : 'down'}}" aria-hidden="true"/></button>
+      <block wx:if="{{planExpanded}}">
+        <text class="trail-meta">{{trip.aiPlan.start}} 出发</text><text class="trail-note">{{trip.aiPlan.summary}}</text>
+        <text class="trail-note" wx:for="{{trip.aiPlan.notes}}" wx:key="*this">{{item}}</text>
+      </block>
     </view>
   </block>
 </view>

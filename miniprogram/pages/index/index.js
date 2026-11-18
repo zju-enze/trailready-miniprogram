@@ -4,10 +4,16 @@
  */
 var dateUtils = require('../../utils/dateUtils');
 var mockData = require('../../utils/mockData');
-var weatherSim = require('../../utils/weatherSim');
 var weatherApi = require('../../utils/weatherApi');
+const { assistantAvailable } = require('../../utils/trailAssistant');
 var recommendation = require('../../utils/recommendation');
 var trips = require('../../utils/trips');
+
+const dayMetrics = [
+  { key: 'distance', label: '计划里程', unit: 'km' },
+  { key: 'ascent', label: '累计爬升', unit: 'm' },
+  { key: 'hours', label: '行走耗时', unit: '小时' }
+];
 
 Page({
 
@@ -38,14 +44,6 @@ Page({
     '燃料','路粮','旅行'
   ],
 
-  CATEGORY_ICONS: {
-    clothing:    '👕',
-    sleeping:    '🏕️',
-    cooking:     '🍳',
-    electronics: '📡',
-    misc:        '🎒'
-  },
-
   data: {
     /* Tab */
     activeTab: 'trip',
@@ -57,14 +55,15 @@ Page({
     startDate: '',
     totalDays: 3,
     dayPlans: [],
+    dayMetrics,
     tripDateRange: '',
     dateExceedsForecast: false,
+    canQueryWeather: false,
     weatherLoadingIndex: -1,
     suggestions: {},
     suggestionsLoadingIndex: -1,
     destinationChain: '',
     smartLodgeHint: '',
-    smartBoardText: '',
 
     /* Gear */
     gear: [],
@@ -81,6 +80,7 @@ Page({
     formCategoryLabel: '衣物层',
     formWeight: '',
     formTags: [],
+    tagsOpen: false,
     formError: '',
 
     /* Packing */
@@ -105,27 +105,20 @@ Page({
       var fd = dateUtils.formatDayDate(startDate, i);
       var old = (existingPlans && existingPlans[i]) || null;
 
-      // 保留已有数据（模拟天气、目的地等），仅当日期变化时清除模拟天气
-      var simulatedWeather = null;
-      if (old && old.dateString === fd.dateString) {
-        simulatedWeather = old.simulatedWeather || null;
-      }
-
       const sameDate = old && old.dateString === fd.dateString;
       plans.push({
         ...old,
         dayIndex: i + 1,
         destination: old ? old.destination : '',
-        weatherPreset: sameDate ? old.weatherPreset : this.tripId ? '' : 'clear_warm',
-        weatherPresetIndex: sameDate ? old.weatherPresetIndex : this.tripId ? 0 : 1,
+        weatherPreset: sameDate ? old.weatherPreset : '',
+        weatherPresetIndex: sameDate ? old.weatherPresetIndex : 0,
         dateString: fd.dateString,
         weekday: fd.weekday,
         displayDate: fd.displayDate,
         stayType: (old && old.stayType) || (this.tripId ? 'daytrip' : 'camping'),
         stayConfirmed: !!(sameDate && old.stayConfirmed),
         transportConfirmed: !!(sameDate && old.transportConfirmed),
-        simulatedWeather: simulatedWeather,
-        fetchedWeather: sameDate ? old.fetchedWeather || null : null
+        fetchedWeather: sameDate && old.fetchedWeather?.source === 'qweather' ? old.fetchedWeather : null
       });
     }
     return plans;
@@ -133,7 +126,6 @@ Page({
 
   /** 将装备按分类分组（返回数组，wx:for 可用） */
   _buildGearGrouped: function (gear, expandedMap) {
-    var CATEGORY_ICONS = this.CATEGORY_ICONS;
     var map = {};
     mockData.CATEGORY_ORDER.forEach(function (cat) { map[cat] = []; });
 
@@ -150,7 +142,6 @@ Page({
         var totalWeight = items.reduce(function (s, it) { return s + it.weight; }, 0);
         return {
           category: cat,
-          icon: CATEGORY_ICONS[cat] || '📦',
           label: mockData.CATEGORY_LABELS[cat] || cat,
           items: items,
           totalWeight: totalWeight,
@@ -161,7 +152,6 @@ Page({
 
   /** 将打包清单按分类分组 */
   _buildPackingGrouped: function (items, expandedMap) {
-    var CATEGORY_ICONS = this.CATEGORY_ICONS;
     var map = {};
     mockData.CATEGORY_ORDER.forEach(function (cat) { map[cat] = []; });
 
@@ -179,7 +169,6 @@ Page({
         var packed = catItems.filter(function (it) { return it.packed; }).length;
         return {
           category: cat,
-          icon: CATEGORY_ICONS[cat] || '📦',
           label: mockData.CATEGORY_LABELS[cat] || cat,
           items: catItems,
           catWeight: catWeight,
@@ -196,9 +185,10 @@ Page({
   onLoad: function (options = {}) {
     this.tripId = options.trip;
     var trip = this.tripId && trips.read().trips.find(t => t.id === this.tripId);
-    var gear = trips.loadGear();
+    var demoGear = !this.tripId && (options.tab !== 'gear' || options.demo === '1');
+    var gear = trips.loadGear(demoGear);
     var today = trip ? trip.start : dateUtils.getTodayString();
-    var dayPlans = trip ? trip.days : this._buildDayPlans(today, 3, null);
+    var dayPlans = this._buildDayPlans(today, trip ? trip.days.length : 3, trip ? trip.days : null);
     var dateRange = dateUtils.formatDateRange(today, dayPlans.length);
 
     // ═══ 🎨 读取用户上次选择的主题 ═══
@@ -212,17 +202,20 @@ Page({
 
     this.setData({
       scoped: !!trip || options.tab === 'gear',
+      demoGear,
       tripName: trip ? trip.name : '',
       activeTab: options.tab === 'gear' ? 'gear' : 'trip',
       totalDays: dayPlans.length,
       // 注入 WXML 模板需要的常量（来自 Page 顶层属性）
       weatherPresetOptions: this.WEATHER_PRESET_OPTIONS,
+      canQueryWeather: assistantAvailable(),
       allTags: this.ALL_TAGS,
       gearCategoryOptions: this.GEAR_CATEGORY_OPTIONS,
 
       startDate: today,
       dayPlans: dayPlans,
       tripDateRange: dateRange,
+      dateExceedsForecast: this._updateForecastWarning(today, dayPlans.length),
       gear: gear,
       gearGrouped: this._buildGearGrouped(gear, {}),
       gearCount: gear.length,
@@ -246,7 +239,7 @@ Page({
 
   onShow() {
     if (this.data.activeTab === 'gear' && !this.data.directGearEdit) {
-      this._updateGearData(trips.loadGear());
+      this._updateGearData(trips.loadGear(this.data.demoGear));
       if (!this.tripId) this._recompute();
     }
   },
@@ -263,7 +256,14 @@ Page({
       if (trip.start !== startDate) trip.checks.forEach(c => { c.done = false; });
       trip.name = tripName.trim() || '我的行程';
       trip.start = startDate;
-      trip.days = dayPlans;
+      trip.days = dayPlans.map(day => {
+        const savedDay = { ...day };
+        for (const { key } of dayMetrics) {
+          const value = day[key];
+          savedDay[key] = value == null || value === '' || value === '.' ? null : Number(value);
+        }
+        return savedDay;
+      });
     });
     this.setData({ saveFailed: !saved });
   },
@@ -283,6 +283,16 @@ Page({
     this._savePlan();
   },
 
+  onDayMetricInput(e) {
+    const { index, field } = e.currentTarget.dataset;
+    if (!/^\d*(\.\d*)?$/.test(e.detail.value)) {
+      wx.showToast({ title: '请填写非负数', icon: 'none' });
+      const previous = this.data.dayPlans[index][field];
+      return previous == null ? '' : String(previous);
+    }
+    this.onDayFieldInput(e);
+  },
+
   finishTripEdit() {
     this._savePlan();
     if (!this.data.saveFailed) wx.navigateBack();
@@ -297,7 +307,7 @@ Page({
     // ═══ 日期边界校验：出发日不得超过未来 30 天 ═══
     if (!this.tripId && this._checkDateBoundary(newStart)) {
       wx.showToast({
-        title: '气象站看不清那么远，请选择30天内的行程哦~',
+        title: '请选择未来 30 天内的日期',
         icon: 'none',
         duration: 2500
       });
@@ -348,8 +358,8 @@ Page({
     if (total > weatherApi.MAX_FORECAST_DAYS) {
       total = weatherApi.MAX_FORECAST_DAYS;
       wx.showModal({
-        title: '🏔️ 气象站尽力了',
-        content: '由于现代气象雷达的科学极限，系统目前最多仅能为您预报【未来 30 天内】的天气。已自动为您截取前 30 天的行程进行装备匹配，超出部分将参考经典气候推荐。',
+        title: '行程最多支持 30 天',
+        content: '已将本次行程设为 30 天。',
         showCancel: false,
         confirmText: '好的'
       });
@@ -385,16 +395,8 @@ Page({
    * @returns {boolean}
    */
   _updateForecastWarning: function (startDate, totalDays) {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var maxDate = new Date(today.getTime() + weatherApi.MAX_FORECAST_DAYS * 24 * 60 * 60 * 1000);
-
-    var start = new Date(startDate + 'T00:00:00');
-    if (start > maxDate) return true;
-
-    var end = new Date(startDate + 'T00:00:00');
-    end.setDate(end.getDate() + totalDays - 1);
-    return end > maxDate;
+    const end = dateUtils.formatDayDate(startDate, totalDays - 1).dateString;
+    return !weatherApi.isDateInForecastRange(startDate) || !weatherApi.isDateInForecastRange(end);
   },
 
   /* ================================================================ */
@@ -526,29 +528,28 @@ Page({
 
     if (!city || !city.name) return;
 
-    // ⏳ 立即展示 Loading（用户明确点选，体验完全合理）
-    wx.showLoading({ title: '正在气象站连线...', mask: true });
-
     // 填入 POI 名称 + 存入经纬度（lng,lat 格式给和风天气用）
     var updateData = {};
     updateData['dayPlans[' + index + '].destination'] = city.name;
     updateData['dayPlans[' + index + ']._locationLngLat'] = (city.lng && city.lat)
       ? city.lng + ',' + city.lat
       : '';
-    updateData['dayPlans[' + index + ']._locationId'] = city.id || '';
+    // 腾讯地点 ID 与和风 Location ID 属于不同服务，地点查询使用坐标或名称。
+    updateData['dayPlans[' + index + ']._locationId'] = '';
     updateData['dayPlans[' + index + '].fetchedWeather'] = null;
     updateData['dayPlans[' + index + '].simulatedWeather'] = null;
     updateData['dayPlans[' + index + '].transportConfirmed'] = false;
     updateData['dayPlans[' + index + '].stayConfirmed'] = false;
     updateData['suggestions[' + index + ']'] = null;
     updateData['suggestionsLoadingIndex'] = -1;
-    updateData['weatherLoadingIndex'] = index;
     this.setData(updateData);
     this._updateMaskVisibility();
 
     // 触发天气查询
     this._savePlan();
-    this._fetchWeatherForIndex(index, city.name);
+    if (this.data.canQueryWeather && weatherApi.isDateInForecastRange(this.data.dayPlans[index].dateString)) {
+      this._fetchWeatherForIndex(index, city.name);
+    }
   },
 
   /**
@@ -565,12 +566,22 @@ Page({
     // 键盘收起时不做任何下拉隐藏操作
   },
 
+  refreshWeather(e) {
+    const index = e.currentTarget.dataset.index;
+    this.hideAllSuggestions();
+    return this._fetchWeatherForIndex(index, this.data.dayPlans[index].destination);
+  },
+
   /** 统一天气查询入口 — 包裹 Loading 提示，优先走地图经纬度通道 */
   _fetchWeatherForIndex: function (index, destination) {
     var self = this;
-    var dateStrings = this.data.dayPlans.map(function (d) { return d.dateString; });
     var day = this.data.dayPlans[index];
     const requestedDate = day.dateString;
+    if (!weatherApi.isDateInForecastRange(requestedDate)) {
+      wx.showToast({ title: '该日期超出预报范围', icon: 'none' });
+      return;
+    }
+    var dateStrings = [requestedDate];
     const requestedPreset = day.weatherPreset;
     const stillCurrent = () => {
       const current = this.data.dayPlans[index];
@@ -579,85 +590,23 @@ Page({
     };
 
     wx.showLoading({ title: '正在气象站连线...', mask: true });
+    this.setData({ weatherLoadingIndex: index });
 
-    // 优先级：地图经纬度 > 和风 Location ID > 文本模糊查询
-    var latLng = day._locationLngLat;
-    var locationId = day._locationId;
-    var weatherPromise;
-    if (latLng) {
-      // 腾讯地图 POI → 经纬度直查和风天气（最精准，内置最近气象站定位）
-      weatherPromise = weatherApi.fetchTripWeatherByLatLng(latLng, destination, dateStrings);
-    } else if (locationId) {
-      weatherPromise = weatherApi.fetchTripWeatherById(locationId, destination, dateStrings);
-    } else {
-      weatherPromise = weatherApi.fetchTripWeather(destination, dateStrings);
-    }
-
-    weatherPromise.then(function (weatherMap) {
+    // 旧行程可能缓存腾讯的 POI ID。和风查询只传坐标或地名。
+    let unavailable = false;
+    return weatherApi.fetchTripWeather(destination, dateStrings, day._locationLngLat).catch(() => {
+      unavailable = true;
+      return {};
+    }).then(function (weatherMap) {
       wx.hideLoading();
+      if (!self.unloaded) self.setData({ weatherLoadingIndex: -1 });
       if (!stillCurrent()) return;
-      var updateData = { weatherLoadingIndex: -1 };
-      // 只更新被查询的那一天，不动其他天
-      // 旧逻辑遍历所有 dayPlans，会把 Day1/Day2 的天气也覆盖成当前查询城市的天气
-      var queriedDateString = self.data.dayPlans[index].dateString;
-      var w = weatherMap[queriedDateString];
-      if (w) {
-        updateData['dayPlans[' + index + '].fetchedWeather'] = w;
-        updateData['dayPlans[' + index + '].simulatedWeather'] = w;
+      const weather = weatherMap[requestedDate] || null;
+      if (!weather) {
+        wx.showToast({ title: unavailable ? '天气服务暂不可用，可手动填写' : '当天暂无预报，可手动填写', icon: 'none' });
       }
-      self.setData(updateData);
+      self.setData({ ['dayPlans[' + index + '].fetchedWeather']: weather });
       self._recompute();
-    }).catch(function (err) {
-      wx.hideLoading();
-      if (!stillCurrent()) return;
-      if (self.tripId) {
-        self.setData({ weatherLoadingIndex: -1 });
-        wx.showToast({ title: '未取得预报，请核对天气', icon: 'none' });
-        return;
-      }
-      var errDetail = err && err.message ? err.message : String(err);
-      console.warn('【天气加载】真实 API 失败:', errDetail);
-
-      // ═══════════════════════════════════════════
-      //  █ 分支 A｜地点找不到 → 强行阻断，不降级
-      // ═══════════════════════════════════════════
-      if (err && err.isLocationNotFound) {
-        wx.showModal({
-          title: '🗺️ 目的地输入有误',
-          content: '气象站找不到您输入的城市或景区名称。请检查是否有错别字，或尝试输入更知名的主县城/核心景区名（如输入「迪庆」或「香格里拉」）。',
-          showCancel: false,
-          confirmText: '知晓'
-        });
-        var clearData = { weatherLoadingIndex: -1 };
-        clearData['dayPlans[' + index + '].destination'] = '';
-        self.setData(clearData);
-        self._recompute();
-        return;
-      }
-
-      // ═══════════════════════════════════════════
-      //  █ 分支 B｜真正网络故障 → 允许模拟兜底
-      // ═══════════════════════════════════════════
-      if (err && err.isNetworkError) {
-        wx.showToast({
-          title: '信号进入无人区，已切换为模拟数据',
-          icon: 'none',
-          duration: 2500
-        });
-        weatherSim.simulateWeather(day.dateString).then(function (weather) {
-          var updateData = {};
-          updateData['dayPlans[' + index + '].simulatedWeather'] = weather;
-          updateData['weatherLoadingIndex'] = -1;
-          self.setData(updateData);
-          self._recompute();
-        });
-        return;
-      }
-
-      // ═══════════════════════════════════════════
-      //  █ 分支 C｜其他业务错误 → 阻断，保持界面稳定
-      // ═══════════════════════════════════════════
-      self.setData({ weatherLoadingIndex: -1 });
     });
   },
 
@@ -718,6 +667,8 @@ Page({
   onFormWeightInput: function (e) {
     this.setData({ formWeight: e.detail.value, formError: '' });
   },
+
+  toggleTags() { this.setData({ tagsOpen: !this.data.tagsOpen }); },
 
   onToggleTag: function (e) {
     var tag = e.currentTarget.dataset.tag;
@@ -796,13 +747,13 @@ Page({
       });
     }
 
-    if (!this._persistGear(gear)) return;
+    if (!trips.saveGear(gear, this.data.demoGear)) return;
     wx.navigateBack();
   },
 
   onDeleteGear: function (e) {
     var id = e.currentTarget.dataset.id;
-    const using = trips.read().trips.find(t => t.carry[id]);
+    const using = !this.data.demoGear && trips.read().trips.find(t => t.carry[id]);
     if (using) {
       wx.showModal({ title: '装备正在使用', content: '请先从「' + using.name + '」的本次装备中移除。', showCancel: false });
       return;
@@ -816,12 +767,12 @@ Page({
     var self = this;
     wx.showModal({
       title: '确认删除',
-      content: '确定要删除装备「' + (item ? item.name : '') + '」吗？\n此操作不可撤销，打包清单将实时联动更新。',
+      content: (item ? item.name : '') + '将从装备库移除。',
       confirmColor: self.data.currentTheme === 'dark' ? '#FF5252' : '#D94F4F',
       success: function (res) {
         if (res.confirm) {
           var newGear = self.data.gear.filter(function (g) { return g.id !== id; });
-          if (!self._persistGear(newGear)) return;
+          if (!trips.saveGear(newGear, self.data.demoGear)) return;
           self._updateGearData(newGear);
           self._recompute();
           if (self.data.directGearEdit) wx.navigateBack();
@@ -944,27 +895,17 @@ Page({
       .map(function (d) { return d.destination.trim(); })
       .join(' → ');
 
-    // 智能宿营看板
     var dayPlans = this.data.dayPlans;
     var campingDays = dayPlans.filter(function (d) { return d.stayType === 'camping'; }).length;
     var hotelDays = dayPlans.length - campingDays;
 
     var smartLodgeHint = '';
     if (campingDays === 0) {
-      smartLodgeHint = '🏨 全程旅馆';
+      smartLodgeHint = '全程旅馆';
     } else if (hotelDays === 0) {
-      smartLodgeHint = '⛺ 全程扎营（' + campingDays + '天）';
+      smartLodgeHint = '扎营 ' + campingDays + ' 天';
     } else {
-      smartLodgeHint = '🔀 混合 · ' + campingDays + '天扎营 + ' + hotelDays + '天旅馆';
-    }
-
-    var smartBoardText = '';
-    if (hasDest) {
-      if (campingDays > 0 && hotelDays > 0) {
-        smartBoardText = '检测到您有 ' + campingDays + ' 天需要野外扎营，已自动为您备齐露营重装。其余 ' + hotelDays + ' 天旅馆住宿日建议在民宿补充路粮。';
-      } else if (campingDays === 0) {
-        smartBoardText = '全程住店，已为您极限减负！';
-      }
+      smartLodgeHint = '扎营 ' + campingDays + ' 天 · 旅馆 ' + hotelDays + ' 天';
     }
 
     var totalWeightDisplay = result
@@ -980,8 +921,7 @@ Page({
       totalWeightDisplay: totalWeightDisplay,
       packingGrouped: packingGrouped,
       destinationChain: chain,
-      smartLodgeHint: smartLodgeHint,
-      smartBoardText: smartBoardText
+      smartLodgeHint: smartLodgeHint
     });
 
     this._updatePackingStats();
@@ -1022,18 +962,6 @@ Page({
       gearCount: gear.length,
       gearWeight: gear.reduce(function (s, it) { return s + it.weight; }, 0)
     });
-  },
-
-  /** 持久化装备到本地缓存 */
-  _persistGear: function (gear) {
-    try {
-      wx.setStorageSync('trail_gear_closet', JSON.stringify(gear));
-      return true;
-    } catch (e) {
-      console.warn('装备数据保存失败', e);
-      wx.showToast({ title: '装备保存失败，请重试', icon: 'none' });
-      return false;
-    }
   },
 
   /** 空操作 — 阻止冒泡 */

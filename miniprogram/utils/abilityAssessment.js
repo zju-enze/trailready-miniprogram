@@ -29,6 +29,35 @@ const DAILY_RULES = Object.freeze({
   shortTripMaxKm: 10
 });
 
+const CALIBRATION = Object.freeze({
+  starterDistanceKm: Object.freeze({ low: 3, high: 5 }),
+  defaultExperience: { typicalKm: 5, maxKm: 7 },
+  experience: {
+    beginner: { typicalKm: 5, maxKm: 6 },
+    occasional: { typicalKm: 6.5, maxKm: 9 },
+    regular: { typicalKm: 8.5, maxKm: 12 }
+  },
+  fitnessFactor: { low: 0.75, medium: 1, high: 1.15 },
+  maxUnverifiedSelfDistanceKm: 30,
+  selfRangeLowFraction: 0.70,
+  priorWeight: 4,
+  recencyHalfLifeDays: 180,
+  repeatedRouteCredit: 0.65,
+  effortFactor: [0, 1, 1, 0.85, 0.75, 1],
+  unknownAscentCredit: 0.8,
+  unusualTimeCredit: 0.6,
+  scopedGroupCredit: 0.75,
+  minTypicalTimeRatio: 0.4,
+  maxTypicalTimeRatio: 4,
+  minimumEffectiveForCalibration: 2,
+  maxDistanceShiftPerEffectiveHike: 0.5,
+  minimumDistanceShiftKm: 1,
+  burdenComparableDistanceRatio: 1.1,
+  burdenTargetDistanceRatio: 0.9,
+  burdenMaximumTargetReduction: 0.30,
+  steepBurdenCredit: 0.5
+});
+
 const SOURCE = 'trailready_trips.history';
 const DAY_MS = 86400000;
 const ROUTE_LIMIT = '耗时为经验估计，可能包含休息时间。高海拔、极端天气和复杂技术路线超出模型适用范围。';
@@ -83,6 +112,11 @@ function bounds(values) {
   return { low, high };
 }
 
+function typicalDistanceRange(sorted) {
+  if (sorted.length < DAILY_RULES.quartileSamples) return bounds(sorted);
+  return { low: quantile(sorted, 0.25), high: quantile(sorted, 0.75) };
+}
+
 function evidence(samples, asOfMs) {
   const dates = samples.map(sample => Date.parse(sample.ref.date + 'T00:00:00Z'));
   const dateBounds = bounds(dates);
@@ -103,6 +137,10 @@ function hasSupportedEvidence(sampleCount, coverage, ratedShare, quality) {
     && quality.spanDays >= RULES.minimumSpanDays && quality.diverse;
 }
 
+function distanceGapLimit(center) {
+  return Math.max(DAILY_RULES.minimumDistanceGapKm, center * DAILY_RULES.distanceGapRatio);
+}
+
 function typicalDistanceGroup(samples) {
   if (samples.length < RULES.minimumSamples) return [];
   const sorted = [...samples].sort((a, b) => a.distanceKm - b.distanceKm);
@@ -110,7 +148,7 @@ function typicalDistanceGroup(samples) {
   const radius = Math.max(DAILY_RULES.minimumDistanceRadiusKm, center * DAILY_RULES.distanceRadiusRatio);
   const group = sorted.filter(sample => Math.abs(sample.distanceKm - center) <= radius);
   if (group.length < RULES.minimumSamples || group.length / samples.length < DAILY_RULES.minimumGroupShare) return [];
-  const maxGap = Math.max(DAILY_RULES.minimumDistanceGapKm, center * DAILY_RULES.distanceGapRatio);
+  const maxGap = distanceGapLimit(center);
   const hasGap = group.some((sample, i) => i > 0 && sample.distanceKm - group[i - 1].distanceKm > maxGap);
   return hasGap ? [] : group;
 }
@@ -146,7 +184,7 @@ function summarizeMetric(samples, asOfMs, {
   if (key === 'distanceKm') {
     const quartiles = values.length >= DAILY_RULES.quartileSamples;
     method = quartiles ? 'typical_group_interquartile' : 'typical_group_range';
-    range = quartiles ? { low: quantile(values, 0.25), high: quantile(values, 0.75) } : bounds(values);
+    range = typicalDistanceRange(values);
   }
   return { ...result, status: supported ? 'supported' : 'preliminary', reason: null, usedCount: used.length,
     method, range, median: quantile(values, 0.5), recordRefs: used.map(sample => sample.ref) };
@@ -175,9 +213,159 @@ function compareSelfAssessment(selfAssessment, metrics) {
   return { source: 'trailready_user_profile', values, differences };
 }
 
+function distancePrior(selfAssessment) {
+  const { experienceLevel, fitnessLevel, comfortableDistanceKm } = selfAssessment ?? {};
+  const experience = CALIBRATION.experience[experienceLevel];
+  const fitness = CALIBRATION.fitnessFactor[fitnessLevel];
+  const reported = metricNumber(comfortableDistanceKm);
+  const rejected = comfortableDistanceKm != null && comfortableDistanceKm !== ''
+    && !(reported > 0 && reported <= CALIBRATION.maxUnverifiedSelfDistanceKm);
+  if ((reported == null || rejected) && !experience && !fitness) {
+    return { source: 'generic', range: CALIBRATION.starterDistanceKm, rejected, limited: false };
+  }
+  const { typicalKm, maxKm } = experience ?? CALIBRATION.defaultExperience;
+  const requested = reported != null && !rejected ? reported : typicalKm * (fitness ?? 1);
+  const high = Math.min(requested, maxKm * (fitness ?? 1));
+  return { source: 'self_assessment', range: { low: high * CALIBRATION.selfRangeLowFraction, high },
+    rejected, limited: requested > high };
+}
+
+function effectiveSampleCount(records, asOfMs, { forDistance = false, burden = false } = {}) {
+  const routes = new Map();
+  for (const record of records) {
+    const ageDays = (asOfMs - Date.parse(record.ref.date + 'T00:00:00Z')) / DAY_MS;
+    const recency = CALIBRATION.recencyHalfLifeDays / (CALIBRATION.recencyHalfLifeDays + ageDays);
+    let credit = recency * CALIBRATION.effortFactor[record.effortLevel];
+    if (forDistance) {
+      const timeRatio = record.durationHours / baseHours(record.distanceKm, record.ascentM ?? 0);
+      if (record.ascentM === null) credit *= CALIBRATION.unknownAscentCredit;
+      if (timeRatio < CALIBRATION.minTypicalTimeRatio || timeRatio > CALIBRATION.maxTypicalTimeRatio) {
+        credit *= CALIBRATION.unusualTimeCredit;
+      }
+      if (burden && ascentBand(record) === 'high') credit *= CALIBRATION.steepBurdenCredit;
+    }
+    const key = record.name.toLowerCase();
+    const route = routes.get(key) ?? { strongest: 0, total: 0 };
+    route.strongest = Math.max(route.strongest, credit);
+    route.total += credit;
+    routes.set(key, route);
+  }
+  return [...routes.values()].reduce((sum, { strongest, total }) =>
+    sum + strongest + CALIBRATION.repeatedRouteCredit * (total - strongest), 0);
+}
+
+function historySource(sampleCount, effectiveCount) {
+  if (sampleCount === 1) return 'single_history';
+  if (sampleCount >= RULES.minimumSamples && effectiveCount >= CALIBRATION.minimumEffectiveForCalibration) {
+    return 'calibrated_history';
+  }
+  return 'limited_history';
+}
+
+function sparseDistanceRecords(records, priorCenter) {
+  if (records.length !== 2) return records;
+  const [shorter, longer] = [...records].sort((a, b) => a.distanceKm - b.distanceKm);
+  const center = (shorter.distanceKm + longer.distanceKm) / 2;
+  if (longer.distanceKm - shorter.distanceKm <= distanceGapLimit(center)) return records;
+  return Math.abs(shorter.distanceKm - priorCenter) <= Math.abs(longer.distanceKm - priorCenter) ? [shorter] : [longer];
+}
+
+function closestDistanceGroup(records, priorCenter) {
+  const sorted = [...records].sort((a, b) => a.distanceKm - b.distanceKm);
+  const maxGap = distanceGapLimit(quantile(sorted.map(record => record.distanceKm), 0.5));
+  const groups = [[]];
+  sorted.forEach((record, index) => {
+    if (index > 0 && record.distanceKm - sorted[index - 1].distanceKm > maxGap) groups.push([]);
+    groups[groups.length - 1].push(record);
+  });
+  const candidates = groups.map(typicalDistanceGroup).filter(group => group.length)
+    .map(group => ({ group, gap: Math.abs(quantile(group.map(record => record.distanceKm), 0.5) - priorCenter) }));
+  // Candidates are already ordered by distance, so a tie favors the shorter group.
+  candidates.sort((a, b) => a.gap - b.gap);
+  return candidates[0]?.group ?? [];
+}
+
+function blendDistance(prior, records, highEffortRecords, historyRange, asOfMs, scopedGroup) {
+  const center = (prior.range.low + prior.range.high) / 2;
+  const effectiveCount = effectiveSampleCount(records, asOfMs, { forDistance: true })
+    * (scopedGroup ? CALIBRATION.scopedGroupCredit : 1);
+  const historyWeight = effectiveCount / (effectiveCount + CALIBRATION.priorWeight);
+  const reach = Math.max(CALIBRATION.minimumDistanceShiftKm, center * CALIBRATION.maxDistanceShiftPerEffectiveHike) * effectiveCount;
+  const blend = (start, observed) => {
+    const bounded = Math.max(center - reach, Math.min(center + reach, observed));
+    return start + historyWeight * (bounded - start);
+  };
+  let range = historyRange ? { low: blend(prior.range.low, historyRange.low), high: blend(prior.range.high, historyRange.high) }
+    : { ...prior.range };
+  // Similar or shorter strenuous hikes can temper the result. Steep outings
+  // carry less weight because the effort may primarily reflect the climb.
+  const burden = highEffortRecords.filter(record => record.distanceKm <= range.high * CALIBRATION.burdenComparableDistanceRatio);
+  const burdenEffectiveCount = effectiveSampleCount(burden, asOfMs, { forDistance: true, burden: true });
+  const burdenWeight = burdenEffectiveCount / (burdenEffectiveCount + CALIBRATION.priorWeight);
+  if (burdenWeight > 0) {
+    const distances = burden.map(record => record.distanceKm).sort((a, b) => a - b);
+    const target = Math.max(range.high * (1 - CALIBRATION.burdenMaximumTargetReduction),
+      quantile(distances, 0.5) * CALIBRATION.burdenTargetDistanceRatio);
+    const scale = 1 - burdenWeight * Math.max(0, 1 - target / range.high);
+    range = { low: range.low * scale, high: range.high * scale };
+  }
+  const usedCount = records.length + burden.length;
+  const source = usedCount ? historySource(usedCount, effectiveCount + burdenEffectiveCount) : prior.source;
+  return { source, range, prior, historyRange, effectiveCount, historyWeight, burdenEffectiveCount, burdenWeight, scopedGroup,
+    recordRefs: records.map(record => record.ref), burdenRefs: burden.map(record => record.ref) };
+}
+
+function observedRecommendation(records, key, condition, asOfMs) {
+  if (!records.length) return { source: 'missing', value: null, condition, effectiveCount: 0, recordRefs: [] };
+  const effectiveCount = effectiveSampleCount(records, asOfMs);
+  const values = records.map(record => record[key]).sort((a, b) => a - b);
+  return { source: historySource(records.length, effectiveCount), value: quantile(values, 0.5),
+    condition, effectiveCount, recordRefs: records.map(record => record.ref) };
+}
+
+function dailyRecommendations(referenceRecords, highEffortRecords, typical, metrics, selfAssessment, asOfMs) {
+  const prior = distancePrior(selfAssessment);
+  const center = (prior.range.low + prior.range.high) / 2;
+  const sparse = referenceRecords.length < RULES.minimumSamples;
+  const scoped = sparse || typical.length ? [] : closestDistanceGroup(referenceRecords, center);
+  const group = scoped.length ? scoped : typical;
+  const distanceRecords = sparse ? sparseDistanceRecords(referenceRecords, center) : group;
+  const historyRange = metrics.distanceKm.range ?? typicalDistanceRange(distanceRecords.map(record => record.distanceKm));
+  const distanceKm = blendDistance(prior, distanceRecords, highEffortRecords, historyRange, asOfMs, scoped.length > 0);
+  distanceKm.sparseConflict = referenceRecords.length === 2 && distanceRecords.length === 1;
+  const pairs = distanceRecords.filter(record => record.ascentM !== null);
+  const pairedDistance = bounds(pairs.map(record => record.distanceKm));
+  const ascentM = observedRecommendation(pairs, 'ascentM', { distanceKm: pairedDistance }, asOfMs);
+  const reportedAscent = metricNumber(selfAssessment?.comfortableAscentM);
+  if (ascentM.source === 'missing' && reportedAscent != null) {
+    const distance = distanceKm.range;
+    const cap = distance.low * DAILY_RULES.lowAscentMaxMPerKm;
+    Object.assign(ascentM, { source: 'self_assessment', value: Math.min(reportedAscent, cap),
+      condition: { distanceKm: distance }, reportedValue: reportedAscent });
+  }
+  const load = key => {
+    const range = metrics[key].condition.distanceKm;
+    const group = referenceRecords.filter(record => record.loadKg !== null
+      && (range.maxInclusive == null ? record.distanceKm > range.minExclusive : record.distanceKm <= range.maxInclusive));
+    const result = observedRecommendation(group, 'loadKg', metrics[key].condition, asOfMs);
+    const reported = metricNumber(selfAssessment?.typicalLoadKg);
+    return result.source === 'missing' && reported != null
+      ? { ...result, source: 'self_reported', reportedValue: reported } : result;
+  };
+  return {
+    distanceKm, ascentM,
+    lowAscentPaceMinPerKm: observedRecommendation(referenceRecords.filter(record => record.ascentBand === 'low'),
+      'paceMinPerKm', metrics.lowAscentPaceMinPerKm.condition, asOfMs),
+    highAscentPaceMinPerKm: observedRecommendation(referenceRecords.filter(record => record.ascentBand === 'high'),
+      'paceMinPerKm', metrics.highAscentPaceMinPerKm.condition, asOfMs),
+    shortTripLoadKg: load('shortTripLoadKg'),
+    longTripLoadKg: load('longTripLoadKg')
+  };
+}
+
 // Pass the same local calendar date to reproduce the result. Each metric provides
-// its own condition and supporting recordRefs. referenceRecords keep the original
-// distance/ascent pairs, and ref.index identifies older records without an ID.
+// historical statistics; recommendations add provisional sources and calibration
+// without changing those statistics. ref.index identifies older records without an ID.
 function generateDailyAbility(history, selfAssessment, asOfDate) {
   const { asOfMs, totalCount, usable, needsReview } = prepareHistory(history, asOfDate);
   const rated = usable.filter(record => record.effortLevel !== null);
@@ -223,6 +411,8 @@ function generateDailyAbility(history, selfAssessment, asOfDate) {
   if (results.every(metric => metric.status === 'supported')) status = 'supported';
   return {
     asOfDate, source: SOURCE, status, availableCount, metrics,
+    recommendations: dailyRecommendations(referenceRecords, highEffortRecords, typical, metrics, selfAssessment, asOfMs),
+    generalTiming: { flatSpeedKmPerHour: RULES.flatSpeedKmPerHour, climbMPerHour: RULES.climbMPerHour },
     counts: { total: totalCount, usable: usable.length, reference: referenceRecords.length,
       comfortable: referenceRecords.length - moderateCount, moderate: moderateCount, highEffort: highEffortRecords.length,
       unrated: usable.length - rated.length },

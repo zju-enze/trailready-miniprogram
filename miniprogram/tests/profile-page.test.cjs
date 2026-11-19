@@ -235,16 +235,19 @@ test('history save, edit and delete immediately refresh statistics on the main t
 });
 
 test('the visible daily reference recomputes after history and self assessment changes', () => {
+  const date = require('../utils/dateUtils').getTodayString();
+  service.save({ comfortableDistanceKm: 6 });
   disk.set('trailready_trips', { trips: [], history: [
-    { id: 'old-a', name: 'A', date: '2025-01-01', distance: 8, hours: 3, ascent: 300, effortLevel: 2 },
-    { id: 'old-b', name: 'B', date: '2025-01-02', distance: 10, hours: 5, ascent: 650, effortLevel: 3 }
+    { id: 'old-a', name: 'A', date, distance: 8, hours: 3, ascent: 300, effortLevel: 2 },
+    { id: 'old-b', name: 'B', date, distance: 10, hours: 5, ascent: 650, effortLevel: 3 }
   ] });
   const page = open(historyDefinition);
-  const distance = () => page.data.ability.rows.find(row => row.key === 'distanceKm').value;
+  const distanceRow = () => page.data.ability.rows.find(row => row.key === 'distanceKm');
   assert.equal(page.data.ability.status, 'insufficient');
-  assert.equal(distance(), '暂无可靠参考');
+  const sparse = distanceRow().value;
+  assert.equal(distanceRow().sourceLabel, '少量经历修正');
   assert.equal(page.data.ability.rows.length, 6);
-  assert.ok(page.data.ability.rows.every(row => row.value === '暂无可靠参考'));
+  assert.equal(page.data.ability.rows.find(row => row.key === 'ascentM').condition, '对应距离 8–10 km');
   assert.equal(page.data.abilityExpanded, false);
   page.toggleAbility();
   page.edit({ currentTarget: { dataset: {} } });
@@ -252,7 +255,9 @@ test('the visible daily reference recomputes after history and self assessment c
   const values = { name: 'C', distance: '11', ascent: '500', hours: '6' };
   page.saveRecord({ detail: { value: values } });
   assert.equal(page.data.ability.status, 'preliminary');
-  assert.equal(distance(), '8–11 km');
+  assert.equal(distanceRow().sourceLabel, '多次历史校准');
+  assert.notEqual(distanceRow().value, sparse);
+  const created = distanceRow().value;
   assert.equal(page.data.ability.rows.find(row => row.key === 'ascentM').condition, '对应距离 8–11 km');
   assert.equal(page.data.ability.rows.find(row => row.key === 'longTripLoadKg').value, '暂无可靠参考');
   assert.equal(page.data.profileExpanded, false);
@@ -261,17 +266,37 @@ test('the visible daily reference recomputes after history and self assessment c
   const { index } = page.data.recentRecords[0];
   page.edit({ currentTarget: { dataset: { index } } });
   page.saveRecord({ detail: { value: { ...values, distance: '12' } } });
-  assert.equal(distance(), '8–12 km');
+  assert.notEqual(distanceRow().value, created);
+  const edited = distanceRow().value;
   service.save({ comfortableDistanceKm: 24 });
   page.onShow();
   assert.match(page.data.ability.comparisons[0].text, /自评.*高于/);
-  assert.equal(distance(), '8–12 km');
+  assert.notEqual(distanceRow().value, edited);
+  const withNewSelf = distanceRow().value;
 
   page.edit({ currentTarget: { dataset: { index } } });
   page.remove();
   assert.equal(page.data.ability.status, 'insufficient');
-  assert.equal(distance(), '暂无可靠参考');
+  assert.notEqual(distanceRow().value, withNewSelf);
+  assert.equal(distanceRow().sourceLabel, '少量经历修正');
   assert.deepEqual(page.data.ability.comparisons, []);
+});
+
+test('the empty history card guides setup and shows the source when a self assessment is added', () => {
+  const page = open(historyDefinition);
+  const rec = () => page.data.ability;
+  assert.equal(rec().rows[0].value, '3–5 km');
+  assert.equal(rec().rows[0].sourceLabel, '通用起步建议');
+  assert.equal(rec().showSetup, true);
+  assert.match(rec().guidance[0], /尚未经历史经历验证/);
+  assert.match(rec().baseTimeNote, /通用基础耗时/);
+  service.save({ experienceLevel: 'beginner', comfortableDistanceKm: 8, typicalLoadKg: 3 });
+  page.onShow();
+  assert.equal(rec().rows[0].value, '4.2–6 km');
+  assert.equal(rec().rows[0].sourceLabel, '自评初步建议');
+  assert.equal(rec().showSetup, false);
+  assert.equal(rec().rows.find(row => row.key === 'shortTripLoadKg').sourceLabel, '自评常见负重');
+  assert.equal(rec().rows.find(row => row.key === 'lowAscentPaceMinPerKm').value, '暂无可靠参考');
 });
 
 test('onShow refreshes history without losing an in-progress self assessment draft', () => {

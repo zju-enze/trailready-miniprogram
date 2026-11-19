@@ -14,8 +14,14 @@ const ABILITY_FIELDS = [
   { key: 'shortTripLoadKg', label: '短途个人参考负重', unit: 'kg' },
   { key: 'longTripLoadKg', label: '长途个人参考负重', unit: 'kg' }
 ];
-const ABILITY_STATUS = {
-  insufficient: '数据不足', preliminary: '初步历史参考', supported: '历史依据相对充分'
+const ABILITY_SOURCE = {
+  generic: '通用起步建议',
+  self_assessment: '自评初步建议',
+  single_history: '单次历史参考',
+  limited_history: '有限历史参考',
+  calibrated_history: '多次历史参考',
+  self_reported: '自评常见负重',
+  missing: ''
 };
 
 function displayNumber(value) {
@@ -38,28 +44,37 @@ function conditionLabel(condition) {
   return limit + (density ? ' m/km' : ' km');
 }
 
-function dailyAbilityView({ status, metrics, counts, selfAssessment, limitations }) {
+function dailyAbilityView({ status, metrics, recommendations, counts, selfAssessment, limitations, generalTiming }) {
+  const distance = recommendations.distanceKm;
   const rows = ABILITY_FIELDS.map(({ key, label, unit }) => {
-    const metric = metrics[key];
-    const { range, method, median, sampleCount, usedCount } = metric;
-    const condition = conditionLabel(metric.condition);
-    if (median === null) {
-      const reason = {
-        dispersed_distances: '距离过于分散',
-        no_distance_group: '缺少可比距离组',
-        insufficient_samples: '样本不足'
-      }[metric.reason];
-      const detail = [condition, reason, sampleCount + ' 条有效记录'].filter(Boolean).join(' · ');
-      return { key, label, value: '暂无可靠参考', detail };
+    const { source, range, value: observed, reportedValue, recordRefs, condition } = recommendations[key];
+    const qualifier = conditionLabel(condition);
+    let sourceLabel = ABILITY_SOURCE[source];
+    let value = '暂无可靠参考';
+    let basis = '';
+    if (range) {
+      value = displayRange(range) + ' ' + unit;
+      if (distance.historyWeight > 0) {
+        basis = recordRefs.length + ' 条舒适经历 · 历史权重 ' + Math.round(distance.historyWeight * 100) + '%';
+      }
+      if (distance.burdenRefs.length) {
+        basis = [basis, distance.burdenRefs.length + ' 条相近高负担经历用于下调'].filter(Boolean).join(' · ');
+      }
+      const distanceSources = { single_history: '单次经历修正',
+        limited_history: recordRefs.length + distance.burdenRefs.length <= 2 ? '少量经历修正' : '有限历史修正',
+        calibrated_history: '多次历史校准' };
+      sourceLabel = distanceSources[source] ?? sourceLabel;
+    } else if (source === 'self_reported') {
+      value = displayNumber(reportedValue) + ' ' + unit;
+      basis = '未按长短途验证';
+    } else if (observed != null) {
+      value = displayNumber(observed) + ' ' + unit;
+      basis = recordRefs.length ? recordRefs.length + ' 条经历的中位数' : '自评按对应距离的低爬升条件收敛';
+    } else {
+      basis = '缺少对应的历史数据';
     }
-    const value = (range ? displayRange(range) : displayNumber(median)) + ' ' + unit;
-    const basis = {
-      typical_group_range: '典型距离组',
-      typical_group_interquartile: '典型组中间一半',
-      median: '历史中位数'
-    }[method];
-    const detail = [key === 'ascentM' ? '' : condition, ABILITY_STATUS[metric.status], basis, usedCount + ' 条'].filter(Boolean).join(' · ');
-    return { key, label, value, detail, condition: key === 'ascentM' ? condition : '' };
+    return { key, label, value, sourceLabel, condition: key === 'ascentM' ? qualifier : '',
+      detail: [key === 'ascentM' ? '' : qualifier, basis].filter(Boolean).join(' · ') };
   });
   const comparisons = selfAssessment.differences.map(({ key, metric, direction }) => {
     const { label } = profile.METRIC_FIELDS.find(field => field.key === key);
@@ -68,7 +83,25 @@ function dailyAbilityView({ status, metrics, counts, selfAssessment, limitations
       shortTripLoadKg: '短途历史', longTripLoadKg: '长途历史' }[metric];
     return { key: metric, text: '自评' + label + result + group + '范围。' };
   });
-  return { status, label: ABILITY_STATUS[status], rows, counts, comparisons, limitations };
+  const guidance = [];
+  if (!distance.recordRefs.length) {
+    guidance.push('尚未经历史经历验证。可先选路况和天气良好、容易折返的简单低爬升路线试走。');
+  }
+  if (distance.prior.rejected) guidance.push('自评距离超出起步校准范围，请核对。');
+  if (distance.prior.limited) guidance.push('起步距离已按自评经验和体能限制。');
+  if (distance.burdenRefs.length) guidance.push('相近路线曾较吃力，已谨慎下调距离参考。');
+  if (distance.sparseConflict) guidance.push('两条经历距离差异较大，暂采用更接近起步距离的一条。');
+  if (distance.scopedGroup) guidance.push('历史距离分成多组，采用较接近起步距离的一组。');
+  else if (metrics.distanceKm.reason === 'dispersed_distances') guidance.push('历史距离较分散，暂以起步距离作参考。');
+  const missingPace = ['lowAscentPaceMinPerKm', 'highAscentPaceMinPerKm']
+    .some(key => recommendations[key].source === 'missing');
+  const baseTimeNote = missingPace
+    ? '通用基础耗时（小时）≈ 距离（km）÷ ' + generalTiming.flatSpeedKmPerHour
+      + ' + 爬升（m）÷ ' + generalTiming.climbMPerHour + '，未计休息。'
+    : '';
+  return { status, rows, counts, comparisons, limitations, guidance, baseTimeNote,
+    showSetup: distance.prior.source === 'generic' && distance.recordRefs.length === 0,
+    label: distance.recordRefs.length ? '历史校准参考' : '起步参考' };
 }
 
 const STAT_FIELDS = [

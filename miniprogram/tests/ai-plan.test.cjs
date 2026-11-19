@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const trips = require('../utils/trips');
 const service = require('../utils/trailAssistant');
 const weather = require('../utils/weatherApi');
-const { getSavedPlan } = require('../utils/aiPlan');
+const { generatePlan, getSavedPlan } = require('../utils/aiPlan');
 
 function loadPage(name) {
   let page;
@@ -14,6 +14,29 @@ function loadPage(name) {
   page.setData = patch => Object.assign(page.data, structuredClone(patch));
   return page;
 }
+
+test('规划使用最近十二次有效日期的经历，兼容不完整旧记录并保留原始存储', async t => {
+  const old = Array.from({ length: 12 }, (_, i) => ({ name: '山路', date: '2024-01-' + String(i + 1).padStart(2, '0') }));
+  const book = { trips: [], history: [
+    null, { name: '坏日期', date: 20250505 }, ...old,
+    { name: '旧路线', date: '2025-01-10', distance: 0, hours: '2.5', ascent: '0', load: -2, effortLevel: 4, note: '私有备注' }
+  ] };
+  const before = structuredClone(book);
+  global.wx = { getStorageSync: key => key === 'trailready_trips' ? book : '[]' };
+  const transport = t.mock.method(service, 'callAssistant', async ({ history }) => {
+    assert.equal(history.length, 12);
+    assert.deepEqual(history[0], { name: '旧路线', date: '2025-01-10', distance: null, hours: 2.5, ascent: 0, load: null, effort: '比较吃力' });
+    assert.equal(history.at(-1).date, '2024-01-02');
+    return { plan: { days: [{}], equipment: [], missing: [], notes: [] } };
+  });
+  const input = { destination: '九溪', start: '2026-11-20' };
+  await generatePlan(input);
+  assert.deepEqual(book, before);
+  book.history = '损坏的旧集合';
+  await assert.rejects(generatePlan(input), /徒步经历格式异常/);
+  assert.equal(book.history, '损坏的旧集合');
+  assert.equal(transport.mock.callCount(), 1);
+});
 
 test('草稿按天切换步行轨迹和仅有地点，并保留各日期的天气', () => {
   const a = { name: '入口', latitude: 30.20, longitude: 120.13 };

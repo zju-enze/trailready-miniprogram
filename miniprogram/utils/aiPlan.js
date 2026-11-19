@@ -1,13 +1,20 @@
 const trips = require('./trips');
 const dates = require('./dateUtils');
 const assistant = require('./trailAssistant');
+const { inspectRecord, readHistory } = require('./hikeHistory');
 
 async function generatePlan({ destination, start, place, sourceTripId }) {
   const book = trips.read();
+  const previousHikes = readHistory(book);
+  if (!previousHikes.ok) throw new Error(previousHikes.error.message);
   const source = book.trips.find(trip => trip.id === sourceTripId);
   const gear = trips.loadGear();
-  const history = (book.history || []).slice().sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 12).map(({ name, date, distance, ascent, hours, load, effort }) =>
+  const today = dates.getTodayString();
+  const history = previousHikes.records.flatMap(raw => {
+    const { validRecord, record } = inspectRecord(raw, today);
+    return validRecord ? [record] : [];
+  }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12)
+    .map(({ name, date, distance, ascent, hours, load, effort }) =>
       ({ name, date, distance, ascent, hours, load, effort }));
   const days = (source ? source.days : []).map(({ from, destination, distance, ascent, hours, stayType, stay, transport }) =>
     ({ from, destination, distance, ascent, hours, stayType, stay, transport }));

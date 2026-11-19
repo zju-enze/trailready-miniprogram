@@ -78,10 +78,9 @@ function inspectRecord(record, today = getTodayString()) {
     record: normalized, fields, missingFields };
 }
 
-function readHistory() {
-  let book;
+function readHistory(book) {
   try {
-    book = trips.read();
+    if (book === undefined) book = trips.read();
   } catch {
     return { ok: false, error: { code: 'STORAGE_READ_FAILED', message: '暂时无法读取徒步经历，请重试。' } };
   }

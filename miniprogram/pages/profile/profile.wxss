@@ -1,7 +1,12 @@
-.profile-row { display: flex; align-items: center; gap: 14rpx; min-height: 48px; }
-.profile-row + .profile-row, .profile-field { border-top: 1rpx solid #e5e9e6; }
-.profile-row picker, .profile-row input { flex: 1; min-width: 0; min-height: 44px; text-align: right; }
-.profile-row picker view { line-height: 44px; }
-.profile-error { display: block; color: #a44534; font-size: 26rpx; margin: 10rpx 0; }
-.field-unit { color: #52665a; font-size: 25rpx; }
-.profile-screen .profile-save { margin-top: 22rpx; }
+.profile-screen .profile-group { padding: 6rpx 28rpx; }
+.profile-section { padding: 16rpx 0 12rpx; }
+.profile-row { display: flex; align-items: center; gap: 12rpx; min-height: 52px; }
+.profile-group picker + picker .profile-row, .profile-field + .profile-field { border-top: 1rpx solid #e5e9e6; }
+.picker-value { margin-left: auto; color: #086b52; }
+.picker-chevron { flex: none; width: 10rpx; height: 10rpx; border: solid #647b6c; border-width: 2rpx 2rpx 0 0; transform: rotate(45deg); }
+.profile-row input { flex: 1; min-width: 0; min-height: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.field-unit, .field-placeholder { color: #52665a; }
+.field-unit { width: 54rpx; font-size: 25rpx; text-align: right; }
+.profile-error { display: block; color: #a44534; font-size: 26rpx; }
+.profile-field .profile-error { padding-bottom: 12rpx; }
+.profile-cancel { align-self: center; }

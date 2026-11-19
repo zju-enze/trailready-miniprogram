@@ -1,77 +1,70 @@
 <view class="trail-screen tab-screen">
   <block wx:if="{{!draft}}">
-    <view class="trail-card ability-card">
-      <text class="section-title">我的日常徒步能力</text>
-      <text class="trail-meta">能力评估待完善</text>
+    <view wx:if="{{historyError}}" class="trail-card trail-heading">
+      <text class="record-error" role="alert">{{historyError}}</text><button class="trail-link" bindtap="refresh">重新读取</button>
     </view>
+    <view wx:else class="trail-heading history-head">
+      <view><text class="trail-meta">已完成徒步</text><view class="hike-count">{{stats.totalHikes}}<text class="unit"> 次</text></view></view>
+      <button class="trail-primary add-record" bindtap="edit">＋ 记录徒步</button>
+    </view>
+
     <view class="trail-card profile-card">
       <button class="profile-toggle expansion-toggle" bindtap="toggleProfile" aria-expanded="{{profileExpanded}}">
         <text class="section-title">个人能力画像</text>
+        <text class="trail-meta profile-preview">{{profileError ? '读取失败' : profileSummary}}</text>
         <view class="expansion-arrow {{profileExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
       </button>
       <block wx:if="{{profileExpanded}}">
         <view class="profile-detail">
-          <text class="section-title">历史表现统计</text>
-          <text wx:if="{{historyError}}" class="record-error" role="alert">{{historyError}}</text>
-          <block wx:elif="{{stats}}">
-            <view class="history-stat-grid">
-              <view class="history-stat">
-                <text class="trail-meta">历史徒步次数</text>
-                <text>{{stats.totalHikes ? stats.totalHikes + ' 次' : '暂无记录'}}</text>
-              </view>
-              <view wx:for="{{statRows}}" wx:key="key" class="history-stat">
-                <text class="trail-meta">{{item.label}}</text>
-                <text>{{item.value}}</text>
-              </view>
-            </view>
-            <text wx:if="{{statsNotice}}" class="trail-meta">{{statsNotice}}</text>
-            <text wx:if="{{stats.totalHikes}}" class="trail-meta stats-note">用时为整次徒步记录。历史表现仅供参考。</text>
-            <button wx:if="{{recentLoads.length}}" class="trail-link" bindtap="toggleLoads" aria-expanded="{{showLoads}}">{{showLoads ? '收起负重记录' : '查看近期负重'}}</button>
-            <view wx:for="{{showLoads ? recentLoads : []}}" wx:key="key" class="history-load">
-              <view class="row-main"><text>{{item.name}}</text><text class="trail-meta">{{item.date}}</text></view>
-              <text>{{item.loadKg}} kg</text>
-            </view>
-          </block>
-        </view>
-        <view class="profile-detail">
-          <view class="trail-heading">
-            <text class="section-title">我的自评</text>
-            <navigator class="profile-edit-link" url="/pages/profile/profile" aria-label="编辑自评">编辑自评 ›</navigator>
+          <view class="trail-heading"><text class="section-title">我的自评</text>
+            <navigator wx:if="{{!profileError}}" class="trail-link" url="/pages/profile/profile" aria-label="编辑徒步自评">{{hasAssessment ? '编辑自评' : '填写自评'}}</navigator>
           </view>
-          <view wx:if="{{profileError}}"><text class="record-error" role="alert">{{profileError}}</text><button class="trail-link" bindtap="refresh">重新读取</button></view>
-          <view wx:else class="history-stat-grid assessment-grid">
-            <view wx:for="{{selfRows}}" wx:key="key" class="history-stat">
-              <text class="trail-meta">{{item.label}}</text>
-              <text>{{item.value}}</text>
+          <view wx:if="{{profileError}}" class="trail-heading"><text class="record-error" role="alert">{{profileError}}</text><button class="trail-link" bindtap="refresh">重试</button></view>
+          <view wx:elif="{{hasAssessment}}" class="history-stat-grid">
+            <block wx:for="{{selfRows}}" wx:key="key"><view wx:if="{{item.value !== '尚未填写'}}" class="history-stat">
+              <text class="trail-meta">{{item.label}}</text><text>{{item.value}}</text>
+            </view></block>
+          </view>
+        </view>
+        <view wx:if="{{stats && stats.totalHikes}}" class="profile-detail">
+          <text class="section-title">历史最高记录</text>
+          <view class="history-stat-grid">
+            <view wx:for="{{statRows}}" wx:key="key" class="history-stat">
+              <text class="trail-meta">{{item.label}}</text><text>{{item.value === '暂无记录' ? '—' : item.value}}</text>
             </view>
+          </view>
+          <button wx:if="{{recentLoads.length}}" class="trail-link load-toggle" bindtap="toggleLoads" aria-expanded="{{showLoads}}">
+            近期负重<view class="expansion-arrow {{showLoads ? 'expanded' : ''}}" aria-hidden="true"/>
+          </button>
+          <view wx:for="{{showLoads ? recentLoads : []}}" wx:key="key" class="history-load">
+            <view class="row-main"><text>{{item.name}}</text><text class="trail-meta">{{item.date}}</text></view>
+            <text>{{item.loadKg}} kg</text>
           </view>
         </view>
       </block>
     </view>
-    <view class="trail-heading">
-      <text class="section-title">历史徒步记录</text>
-      <button wx:if="{{!historyError}}" class="trail-link" bindtap="edit">＋ 记录徒步</button>
-      <button wx:else class="trail-link" bindtap="refresh">重新读取</button>
-    </view>
-    <view wx:if="{{records.length}}" class="trail-card record-list">
-      <button wx:for="{{historyExpanded ? records : recentRecords}}" wx:key="index" class="record-entry" data-index="{{item.index}}" bindtap="edit">
-        <view class="trail-heading">
-          <view class="row-main"><text class="trail-meta">{{item.date || '日期待补充'}}{{item.effort ? ' · ' + item.effort : ''}}</text><text class="section-title">{{item.name || '未命名徒步'}}</text></view>
-          <view class="row-arrow" aria-hidden="true"/>
-        </view>
-        <view class="record-stats">
-          <text wx:if="{{item.distance != null}}">{{item.distance}} km</text><text wx:if="{{item.ascent != null}}">爬升 {{item.ascent}} m</text>
-          <text wx:if="{{item.hours != null}}">{{item.hours}} 小时</text><text wx:if="{{item.load != null}}">负重 {{item.load}} kg</text>
-          <text wx:if="{{item.needsReview}}" class="record-review">信息待完善</text>
-        </view>
-        <text wx:if="{{item.note}}" class="record-note">{{item.note}}</text>
-      </button>
-      <button wx:if="{{records.length > recentRecords.length}}" class="history-toggle expansion-toggle" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}">
-        <text>{{historyExpanded ? '收起历史记录' : '查看全部'}}</text>
-        <view class="expansion-arrow {{historyExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
-      </button>
-    </view>
-    <text wx:elif="{{!historyError}}" class="trail-meta">暂无徒步记录</text>
+
+    <block wx:if="{{records.length}}">
+      <text class="section-title history-section">{{historyExpanded ? '全部记录' : '最近记录'}}</text>
+      <text wx:if="{{statsNotice}}" class="trail-meta">{{statsNotice}}</text>
+      <view class="trail-card record-list">
+        <button wx:for="{{historyExpanded ? records : recentRecords}}" wx:key="index" class="record-entry" data-index="{{item.index}}" bindtap="edit" aria-label="编辑{{item.name || '未命名徒步'}}">
+          <view class="trail-heading">
+            <view class="row-main"><text class="section-title">{{item.name || '未命名徒步'}}</text><text class="trail-meta">{{item.date || '日期待补'}}{{item.effort ? ' · ' + item.effort : ''}}</text></view>
+            <view class="row-arrow" aria-hidden="true"/>
+          </view>
+          <view class="record-stats">
+            <text wx:if="{{item.distance != null}}">{{item.distance}} km</text><text wx:if="{{item.ascent != null}}">爬升 {{item.ascent}} m</text>
+            <text wx:if="{{item.hours != null}}">{{item.hours}} 小时</text><text wx:if="{{item.load != null}}">负重 {{item.load}} kg</text>
+            <text wx:if="{{item.needsReview}}" class="record-review">待补全</text>
+          </view>
+          <text wx:if="{{item.note}}" class="record-note">{{item.note}}</text>
+        </button>
+        <button wx:if="{{records.length > recentRecords.length}}" class="history-toggle expansion-toggle" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}">
+          <text>{{historyExpanded ? '收起' : '查看全部 ' + records.length + ' 条'}}</text><view class="expansion-arrow {{historyExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
+        </button>
+      </view>
+    </block>
   </block>
   <form wx:else bindsubmit="saveRecord" class="record-form">
     <view class="trail-heading">

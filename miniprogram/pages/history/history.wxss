@@ -1,10 +1,15 @@
 .trail-screen .record-list { padding-top: 0; padding-bottom: 0; }
-.ability-card { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8rpx 16rpx; }
+.history-head { padding: 14rpx 4rpx 12rpx; }
+.hike-count { font-size: 76rpx; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hike-count .unit { font-size: 28rpx; }
+.trail-screen .add-record { padding: 16rpx 24rpx; border-radius: 999rpx; font-size: 27rpx; }
+.history-section { padding: 12rpx 4rpx 0; }
 .trail-screen .profile-card { padding: 0; }
 .trail-screen .expansion-toggle {
   display: flex; width: 100%; align-items: center; gap: 16rpx; min-height: 48px;
 }
-.trail-screen .profile-toggle { justify-content: space-between; padding: 20rpx 28rpx; }
+.trail-screen .profile-toggle { padding: 22rpx 28rpx; }
+.profile-preview { flex: 1; min-width: 0; text-align: right; }
 .profile-detail { padding: 24rpx 28rpx; border-top: 1rpx solid #e5e9e6; }
 .trail-screen .history-toggle {
   justify-content: center; border-top: 1rpx solid #e5e9e6; color: #086b52; font-size: 27rpx;
@@ -16,10 +21,8 @@
 .expansion-arrow.expanded { transform: rotate(225deg); }
 .history-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx 20rpx; margin-top: 16rpx; }
 .history-stat { display: flex; flex-direction: column; gap: 4rpx; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.assessment-grid { margin-top: 6rpx; }
-.stats-note { margin-top: 16rpx; }
+.trail-screen .load-toggle { margin-top: 12rpx; gap: 12rpx; }
 .history-load { display: flex; align-items: center; gap: 18rpx; padding: 16rpx 0; border-top: 1rpx solid #e5e9e6; }
-.profile-edit-link { display: flex; align-items: center; min-height: 44px; color: #086b52; font-size: 27rpx; flex-shrink: 0; }
 .record-review { color: #8b552b; }
 .trail-screen .record-entry { display: block; width: 100%; min-height: 48px; padding: 24rpx 0; }
 .record-entry + .record-entry, .field-row + .field-row, .history-field, .history-field + .field-row { border-top: 1rpx solid #e5e9e6; }

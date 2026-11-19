@@ -48,16 +48,19 @@ Page({
         sortDate: quality.fields.date ? '' : (quality.record?.date || '') };
     }).sort((a, b) => b.sortDate.localeCompare(a.sortDate) || a.index - b.index);
     const stats = performance.ok ? performance.stats : null;
+    const rows = assessment.ok ? selfRows(assessment.profile.selfAssessment) : [];
+    const hasAssessment = rows.some(row => row.value !== '尚未填写');
+    const summary = rows.slice(0, 2).find(row => row.value !== '尚未填写');
     this.setData({
       today, records, recentRecords: records.slice(0, HISTORY_PREVIEW_LIMIT), stats,
       historyError: history.ok ? '' : history.error.message,
       profileError: assessment.ok ? '' : assessment.error.message,
-      selfRows: assessment.ok ? selfRows(assessment.profile.selfAssessment) : [],
+      selfRows: rows, hasAssessment, profileSummary: summary?.value || (hasAssessment ? '已填写' : '未填写'),
       statRows: stats ? STAT_FIELDS.map(field => ({ ...field,
         value: stats[field.maximum] == null ? '暂无记录' : stats[field.maximum] + ' ' + field.unit
       })) : [],
       recentLoads: stats ? stats.loadRecords.slice(0, 5).map((record, key) => ({ ...record, key })) : [],
-      statsNotice: stats && stats.ignoredRecordCount ? '部分记录的路线名称或日期待完善，暂不计入统计。' : ''
+      statsNotice: stats && stats.ignoredRecordCount ? stats.ignoredRecordCount + ' 条记录缺少有效路线名或日期，暂未计入次数。' : ''
     });
   },
   toggleProfile() { this.setData({ profileExpanded: !this.data.profileExpanded }); },

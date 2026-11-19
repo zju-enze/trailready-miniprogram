@@ -39,7 +39,7 @@ Page({
   save() {
     const result = profileService.save(this.data.draft);
     if (!result.ok) {
-      return this.setData({ errors: result.error.fields || {}, saveError: result.error.message });
+      return this.setData({ errors: result.error.fields || {}, saveError: result.error.fields ? '' : result.error.message });
     }
     wx.showToast({ title: '自评已保存', icon: 'success' });
     this.cancel();

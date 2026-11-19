@@ -1,6 +1,6 @@
 # TrailReady 微信小程序开发交接
 
-更新于 2026 年 11 月 18 日。TrailReady 用来准备一次具体的徒步。在「准备」输入目的地和出发日期，可以生成 AI 草稿，也可以手工安排行程。个人装备和实际徒步经历在不同的行程之间复用。
+更新于 2026 年 11 月 19 日。TrailReady 用来准备一次具体的徒步。在「准备」输入目的地和出发日期，可以生成 AI 草稿，也可以手工安排行程。个人装备和实际徒步经历在不同的行程之间复用。
 
 ## 用户怎样使用
 
@@ -66,7 +66,7 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 ## 个人能力画像
 
-「经历」主页面直接显示历史表现和自评摘要。「编辑自评」打开原画像页的表单，可编辑徒步经验、自评体能、可接受距离、累计爬升、徒步时长和常见负重。所有自评字段可留空，爬升和负重允许填 0。保存或取消会返回「经历」。日常徒步能力区域显示「能力评估待完善」。
+「经历」首页显示已完成次数和最近三条记录，记录较多时可展开全部。打开「个人能力画像」可查看自评、历史最高记录和近期负重。从这里进入自评表单，可填写徒步经验、体能、舒适距离、累计爬升、时长和常见负重。所有自评字段可留空，爬升和负重允许填 0。自评资料保存在本机；AI 规划继续使用用户确认用于规划的历史经历字段。
 
 `utils/userProfile.js` 导出 `read()`、`save(changes)` 和 `getPerformanceStats()`。`save` 接收自评字段的完整表单或部分更新，使用独立对象 Key `trailready_user_profile`，包含 `version`、`selfAssessment` 和 `updatedAt`。数值字段为 `comfortableDistanceKm`、`comfortableAscentM`、`comfortableDurationHours`、`typicalLoadKg`。调用返回 `{ ok: true, ... }` 或 `{ ok: false, error }`，读取损坏数据及未来版本时保留原存储。
 

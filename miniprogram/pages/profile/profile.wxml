@@ -1,36 +1,42 @@
 <view class="trail-screen profile-screen">
-  <view class="trail-card">
-    <view class="trail-heading">
-      <text class="section-title">我的自评</text>
-      <button class="trail-link" bindtap="cancel">取消</button>
+  <view wx:if="{{profileError}}" class="trail-card">
+    <text class="profile-error" role="alert">{{profileError}}</text>
+    <button class="trail-link" bindtap="edit">重新读取</button>
+    <button class="trail-muted" bindtap="cancel">返回</button>
+  </view>
+  <block wx:elif="{{editing}}">
+    <view class="trail-card profile-group">
+      <picker range="{{experienceOptions}}" range-key="label" value="{{experienceIndex}}" data-field="experienceLevel" bindchange="changeOption" aria-label="徒步经验，{{experienceOptions[experienceIndex].label}}">
+        <view class="profile-row">
+          <text>徒步经验</text>
+          <text class="picker-value">{{experienceOptions[experienceIndex].label}}</text>
+          <view class="picker-chevron" aria-hidden="true"/>
+        </view>
+      </picker>
+      <picker range="{{fitnessOptions}}" range-key="label" value="{{fitnessIndex}}" data-field="fitnessLevel" bindchange="changeOption" aria-label="自评体能，{{fitnessOptions[fitnessIndex].label}}">
+        <view class="profile-row">
+          <text>自评体能</text>
+          <text class="picker-value">{{fitnessOptions[fitnessIndex].label}}</text>
+          <view class="picker-chevron" aria-hidden="true"/>
+        </view>
+      </picker>
     </view>
-    <block wx:if="{{profileError}}">
-      <text class="profile-error" role="alert">{{profileError}}</text>
-      <button class="trail-link" bindtap="edit">重新读取</button>
-    </block>
-    <block wx:elif="{{editing}}">
-      <view class="profile-row">
-        <text>徒步经验</text>
-        <picker range="{{experienceOptions}}" range-key="label" value="{{experienceIndex}}" data-field="experienceLevel" bindchange="changeOption" aria-label="徒步经验水平">
-          <view>{{experienceOptions[experienceIndex].label}}　›</view>
-        </picker>
-      </view>
-      <view class="profile-row">
-        <text>自评体能</text>
-        <picker range="{{fitnessOptions}}" range-key="label" value="{{fitnessIndex}}" data-field="fitnessLevel" bindchange="changeOption" aria-label="自评体能水平">
-          <view>{{fitnessOptions[fitnessIndex].label}}　›</view>
-        </picker>
+    <view class="trail-card profile-group">
+      <view class="trail-heading profile-section">
+        <text class="section-title">单次徒步</text>
+        <text class="trail-meta">选填</text>
       </view>
       <view wx:for="{{metricFields}}" wx:key="key" class="profile-field">
         <label class="profile-row">
           <text>{{item.label}}</text>
-          <input type="digit" value="{{draft[item.key]}}" data-field="{{item.key}}" bindinput="changeField" placeholder="可留空" aria-label="{{item.label}}，单位{{item.unit}}"/>
+          <input type="digit" value="{{draft[item.key]}}" data-field="{{item.key}}" bindinput="changeField" placeholder="—" placeholder-class="field-placeholder" aria-label="{{item.label}}，单位{{item.unit}}"/>
           <text class="field-unit">{{item.unit}}</text>
         </label>
         <text wx:if="{{errors[item.key]}}" class="profile-error" role="alert">{{errors[item.key]}}</text>
       </view>
-      <text wx:if="{{saveError}}" class="profile-error" role="alert">{{saveError}}</text>
-      <button class="trail-primary profile-save" bindtap="save">保存自评</button>
-    </block>
-  </view>
+    </view>
+    <text wx:if="{{saveError}}" class="profile-error" role="alert">{{saveError}}</text>
+    <button class="trail-primary" bindtap="save">保存自评</button>
+    <button class="trail-muted profile-cancel" bindtap="cancel">取消</button>
+  </block>
 </view>

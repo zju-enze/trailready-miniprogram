@@ -1,5 +1,8 @@
-const { cpSync, mkdirSync, mkdtempSync, writeFileSync } = require('node:fs');
+const { readFileSync } = require('node:fs');
 const path = require('node:path');
+const { writePreviewProject } = require('./preview-project.cjs');
+
+const privateDir = path.resolve(__dirname, '../.local');
 
 async function verifyEndpoint(url, header) {
   const probe = headers => fetch(url, {
@@ -7,7 +10,7 @@ async function verifyEndpoint(url, header) {
     body: JSON.stringify({ action: 'places', query: '' })
   });
   const anonymous = await probe({ 'Content-Type': 'application/json' });
-  if (anonymous.status !== 403) throw new Error('入口未返回配对校验的 403，请检查中转是否指向受保护的局域网地址。');
+  if (anonymous.status !== 403) throw new Error('入口未返回配对校验的 403，请检查服务器是否启用了配对校验。');
   const paired = await probe(header);
   if (!paired.ok || !Array.isArray((await paired.json()).places)) throw new Error('联调工程的配对信息已失效。');
 }
@@ -28,29 +31,32 @@ async function prepare(pairedProject, origin) {
   await verifyEndpoint(connection.url, connection.header);
   await verifyEndpoint(publicUrl, connection.header);
 
-  const privateDir = path.resolve(__dirname, '../.local');
-  mkdirSync(privateDir, { recursive: true });
-  const project = mkdtempSync(path.join(privateDir, 'phone-internet-'));
-  const publicFiles = new Set(['app.js', 'app.json', 'app.wxss', 'package.json', 'pages', 'custom-tab-bar', 'assets',
-    'utils', 'miniprogram_npm', 'project.config.json', 'project.private.config.json']);
-  cpSync(source, project, {
-    recursive: true,
-    filter: file => {
-      const rel = path.relative(source, file);
-      return !rel || (publicFiles.has(rel.split(path.sep)[0]) && rel !== path.join('utils', 'config.js'));
-    }
-  });
-  const relay = { url: publicUrl, header: connection.header };
-  writeFileSync(path.join(project, 'utils/previewConnection.js'),
-    'module.exports = () => wx.getAccountInfoSync().miniProgram.envVersion === "develop" ? ' + JSON.stringify(relay) + ' : null;\n');
-  return project;
+  return writePreviewProject(source, privateDir, 'phone-internet-', { url: publicUrl, header: connection.header });
+}
+
+async function prepareServer(origin, source = path.resolve(__dirname, '../miniprogram'), output = privateDir) {
+  const url = new URL(origin);
+  if (url.protocol !== 'https:' || url.pathname !== '/' || url.username || url.password || url.search || url.hash) {
+    throw new Error('请只填写可信服务器的 HTTPS 源地址，例如 https://trail.example.com。');
+  }
+  const token = process.env.TRAIL_PREVIEW_TOKEN || (process.env.TRAIL_PREVIEW_TOKEN_FILE &&
+    readFileSync(process.env.TRAIL_PREVIEW_TOKEN_FILE, 'utf8').trim());
+  if (!token) throw new Error('请设置 TRAIL_PREVIEW_TOKEN 或 TRAIL_PREVIEW_TOKEN_FILE。');
+  const appid = process.env.TRAIL_WECHAT_APPID || JSON.parse(readFileSync(path.join(source, 'project.config.json'), 'utf8')).appid;
+  if (!/^wx[\da-f]{16}$/i.test(appid)) throw new Error('请在 TRAIL_WECHAT_APPID 中填写当前微信小程序的真实 AppID。');
+  url.pathname = '/trail-assistant';
+  const connection = { url: url.href, header: { 'Content-Type': 'application/json', 'X-Trail-Preview': token } };
+  await verifyEndpoint(connection.url, connection.header);
+  return writePreviewProject(source, output, 'phone-server-', connection, appid);
 }
 
 if (require.main === module) {
-  prepare(...process.argv.slice(2)).then(project => console.log('跨网预览工程 ' + project)).catch(error => {
+  const [mode, origin] = process.argv.slice(2);
+  const prepared = mode === '--server' ? prepareServer(origin) : prepare(mode, origin);
+  prepared.then(project => console.log('跨网预览工程 ' + project)).catch(error => {
     console.error(error.message);
     process.exitCode = 1;
   });
 }
 
-module.exports = { verifyEndpoint };
+module.exports = { verifyEndpoint, prepareServer };

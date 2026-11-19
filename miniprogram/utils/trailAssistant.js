@@ -26,9 +26,9 @@ async function callAssistant(data) {
       method: 'POST', data, timeout: 120000,
       success(response) {
         if (response.statusCode >= 200 && response.statusCode < 300 || response.data?.error) resolve(response.data);
-        else reject(new Error('本机行前服务暂不可用'));
+        else reject(new Error('行前服务暂不可用'));
       },
-      fail() { reject(new Error('未连接本机行前服务')); }
+      fail() { reject(new Error('未能连接行前服务，请检查网络后重试。')); }
     }));
   } else {
     if (!cloudReady) throw new Error('当前小程序未连接微信云服务');

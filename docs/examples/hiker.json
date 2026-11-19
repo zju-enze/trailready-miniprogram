@@ -1,0 +1,59 @@
+{
+  "profile": {
+    "version": 1,
+    "selfAssessment": {
+      "experienceLevel": "occasional",
+      "fitnessLevel": "medium",
+      "comfortableDistanceKm": 10,
+      "comfortableAscentM": 300,
+      "comfortableDurationHours": 3,
+      "typicalLoadKg": 3
+    },
+    "updatedAt": null
+  },
+  "history": [
+    {
+      "id": "sample-jiuxi",
+      "name": "九溪至龙井",
+      "date": "2026-11-14",
+      "distance": 8.5,
+      "ascent": 260,
+      "hours": 3,
+      "load": 3,
+      "effortLevel": 3,
+      "effort": "适中"
+    },
+    {
+      "id": "sample-beigaofeng",
+      "name": "北高峰环线",
+      "date": "2026-11-08",
+      "distance": 12,
+      "ascent": 510,
+      "hours": 4.5,
+      "load": 4,
+      "effortLevel": 4,
+      "effort": "比较吃力"
+    },
+    {
+      "id": "sample-yunqi",
+      "name": "云栖竹径",
+      "date": "2026-10-25",
+      "distance": 6.2,
+      "ascent": 130,
+      "hours": 2,
+      "load": 2.5,
+      "effortLevel": 2,
+      "effort": "比较轻松"
+    },
+    {
+      "id": "sample-wushan",
+      "name": "吴山短线",
+      "date": "2026-10-17",
+      "distance": 5,
+      "ascent": 90,
+      "hours": 2,
+      "load": 0,
+      "effort": "轻松"
+    }
+  ]
+}

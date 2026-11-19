@@ -1,21 +1,31 @@
 <view class="trail-screen tab-screen">
-  <view wx:if="{{!count}}" class="collection-empty">
+  <view class="gear-tabs" aria-role="tablist">
+    <button class="collection-tab {{!showExamples ? 'active' : ''}}" bindtap="chooseCollection" data-collection="mine" aria-role="tab" aria-selected="{{!showExamples}}">我的装备</button>
+    <button class="collection-tab {{showExamples ? 'active' : ''}}" bindtap="chooseCollection" data-collection="examples" aria-role="tab" aria-selected="{{showExamples}}">示例装备</button>
+  </view>
+  <view wx:if="{{!showExamples && !count}}" class="collection-empty">
     <image class="collection-symbol" src="/assets/nav/gear.png" mode="aspectFit" aria-hidden="true"/>
     <navigator class="trail-primary" url="/pages/index/index?tab=gear&edit=new">添加第一件装备</navigator>
   </view>
   <block wx:else>
     <view class="trail-heading">
-      <text class="view-title">{{count}}<text class="unit"> 件装备</text></text>
-      <navigator class="trail-link" url="/pages/index/index?tab=gear&edit=new" aria-label="添加装备">＋ 添加</navigator>
+      <text class="view-title">{{showExamples ? exampleCount : count}}<text class="unit"> 件装备</text></text>
+      <button wx:if="{{showExamples}}" class="trail-link example-add" disabled="{{allOwned}}" bindtap="addExamples" data-id="all">{{allOwned ? '已全部加入' : '全部加入'}}</button>
+      <navigator wx:else class="trail-link" url="/pages/index/index?tab=gear&edit=new" aria-label="添加装备">＋ 添加</navigator>
     </view>
     <view wx:for="{{groups}}" wx:key="category" wx:for-item="group" class="trail-card">
       <text class="section-title">{{group.label}}</text>
-      <navigator wx:for="{{group.items}}" wx:key="id" class="trail-row gear-row"
-        url="/pages/index/index?tab=gear&edit={{item.id}}" aria-label="编辑{{item.name}}，{{item.weight == null ? '重量待补' : item.weight + ' 克'}}">
-        <text class="row-main row-title">{{item.name}}</text>
-        <text class="trail-meta gear-weight">{{item.weight == null ? '重量待补' : item.weight + ' g'}}</text>
-        <view class="row-arrow" aria-hidden="true"/>
-      </navigator>
+      <block wx:for="{{group.items}}" wx:key="id">
+        <view wx:if="{{showExamples}}" class="trail-row gear-row">
+          <view class="row-main"><text class="row-title">{{item.name}}</text><text class="trail-meta">{{item.weight}} g</text></view>
+          <button class="trail-link example-add" disabled="{{item.owned}}" data-id="{{item.id}}" bindtap="addExamples" aria-label="{{item.name}}，{{item.owned ? '已在我的装备中' : '加入我的装备'}}">{{item.owned ? '已加入' : '＋ 加入'}}</button>
+        </view>
+        <navigator wx:else class="trail-row gear-row" url="/pages/index/index?tab=gear&edit={{item.id}}" aria-label="编辑{{item.name}}，{{item.weight == null ? '重量待补' : item.weight + ' 克'}}">
+          <text class="row-main row-title">{{item.name}}</text>
+          <text class="trail-meta gear-weight">{{item.weight == null ? '重量待补' : item.weight + ' g'}}</text>
+          <view class="row-arrow" aria-hidden="true"/>
+        </navigator>
+      </block>
     </view>
   </block>
 </view>

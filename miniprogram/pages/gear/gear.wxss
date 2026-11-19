@@ -2,3 +2,8 @@
 .gear-row:first-of-type { margin-top: 12rpx; }
 .gear-weight { flex: none; font-variant-numeric: tabular-nums; }
 .row-arrow { flex: none; width: 10rpx; height: 10rpx; border: solid #728277; border-width: 2rpx 2rpx 0 0; transform: rotate(45deg); }
+.gear-tabs { display: flex; padding: 6rpx; border-radius: 999rpx; background: #e8eeea; }
+.gear-tabs .collection-tab { flex: 1; min-height: 44px; text-align: center; color: #52665a; border-radius: 999rpx; }
+.gear-tabs .collection-tab.active { color: #086b52; background: white; font-weight: 650; }
+.gear-row .example-add { min-width: 44px; justify-content: center; }
+.gear-row .example-add[disabled] { color: #52665a; }

@@ -5,10 +5,17 @@
 .trail-screen .add-record { padding: 16rpx 24rpx; border-radius: 999rpx; font-size: 27rpx; }
 .history-section { padding: 12rpx 4rpx 0; }
 .ability-card { display: flex; flex-direction: column; gap: 12rpx; }
-.ability-card .ability-heading { flex-wrap: wrap; row-gap: 4rpx; }
 .ability-card .history-stat-grid { margin-top: 0; }
-.ability-card .ability-detail { font-size: 24rpx; }
-.trail-screen .ability-toggle { align-self: flex-start; gap: 12rpx; }
+.ability-value { font-size: 32rpx; font-weight: 650; line-height: 1.35; }
+.ability-value.ability-empty { color: #52665a; font-size: 27rpx; font-weight: 400; }
+.trail-screen .ability-toggle { width: 100%; justify-content: space-between; gap: 12rpx; }
+.ability-basis { display: flex; flex-direction: column; gap: 20rpx; }
+.ability-basis-section {
+  display: flex; flex-direction: column; gap: 6rpx; padding-top: 16rpx;
+  border-top: 1rpx solid #e5e9e6; overflow-wrap: anywhere;
+}
+.ability-basis-title { font-size: 28rpx; font-weight: 650; }
+.ability-example-title { margin-top: 8rpx; font-size: 26rpx; font-weight: 550; }
 .trail-screen .profile-card { padding: 0; }
 .trail-screen .expansion-toggle {
   display: flex; width: 100%; align-items: center; gap: 16rpx; min-height: 48px;

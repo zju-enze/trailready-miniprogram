@@ -50,6 +50,10 @@ function event(field, value) {
   return { currentTarget: { dataset: { field } }, detail: { value } };
 }
 
+function abilityExplanation(page, key) {
+  return page.data.ability.sections.find(section => section.key === key)?.lines.join(' ') ?? '';
+}
+
 test('first visit renders missing self assessment and empty history independently', () => {
   const page = open(historyDefinition);
   assert.equal(page.data.profileError, '');
@@ -245,9 +249,9 @@ test('the visible daily reference recomputes after history and self assessment c
   const distanceRow = () => page.data.ability.rows.find(row => row.key === 'distanceKm');
   assert.equal(page.data.ability.status, 'insufficient');
   const sparse = distanceRow().value;
-  assert.equal(distanceRow().sourceLabel, '少量经历修正');
+  assert.match(abilityExplanation(page, 'overview'), /少量经历修正/);
   assert.equal(page.data.ability.rows.length, 6);
-  assert.equal(page.data.ability.rows.find(row => row.key === 'ascentM').condition, '对应距离 8–10 km');
+  assert.match(abilityExplanation(page, 'distance'), /对应距离 8–10 km/);
   assert.equal(page.data.abilityExpanded, false);
   page.toggleAbility();
   page.edit({ currentTarget: { dataset: {} } });
@@ -255,10 +259,10 @@ test('the visible daily reference recomputes after history and self assessment c
   const values = { name: 'C', distance: '11', ascent: '500', hours: '6' };
   page.saveRecord({ detail: { value: values } });
   assert.equal(page.data.ability.status, 'preliminary');
-  assert.equal(distanceRow().sourceLabel, '多次历史校准');
+  assert.match(abilityExplanation(page, 'overview'), /多次历史校准/);
   assert.notEqual(distanceRow().value, sparse);
   const created = distanceRow().value;
-  assert.equal(page.data.ability.rows.find(row => row.key === 'ascentM').condition, '对应距离 8–11 km');
+  assert.match(abilityExplanation(page, 'distance'), /对应距离 8–11 km/);
   assert.equal(page.data.ability.rows.find(row => row.key === 'longTripLoadKg').value, '暂无可靠参考');
   assert.equal(page.data.profileExpanded, false);
   assert.equal(page.data.abilityExpanded, true);
@@ -270,7 +274,7 @@ test('the visible daily reference recomputes after history and self assessment c
   const edited = distanceRow().value;
   service.save({ comfortableDistanceKm: 24 });
   page.onShow();
-  assert.match(page.data.ability.comparisons[0].text, /自评.*高于/);
+  assert.match(abilityExplanation(page, 'comparison'), /自评.*高于/);
   assert.notEqual(distanceRow().value, edited);
   const withNewSelf = distanceRow().value;
 
@@ -278,25 +282,60 @@ test('the visible daily reference recomputes after history and self assessment c
   page.remove();
   assert.equal(page.data.ability.status, 'insufficient');
   assert.notEqual(distanceRow().value, withNewSelf);
-  assert.equal(distanceRow().sourceLabel, '少量经历修正');
-  assert.deepEqual(page.data.ability.comparisons, []);
+  assert.match(abilityExplanation(page, 'overview'), /少量经历修正/);
+  assert.equal(abilityExplanation(page, 'comparison'), '');
 });
 
 test('the empty history card guides setup and shows the source when a self assessment is added', () => {
   const page = open(historyDefinition);
   const rec = () => page.data.ability;
   assert.equal(rec().rows[0].value, '3–5 km');
-  assert.equal(rec().rows[0].sourceLabel, '通用起步建议');
+  assert.match(abilityExplanation(page, 'overview'), /通用起步建议/);
   assert.equal(rec().showSetup, true);
-  assert.match(rec().guidance[0], /尚未经历史经历验证/);
-  assert.match(rec().baseTimeNote, /通用基础耗时/);
+  assert.match(abilityExplanation(page, 'overview'), /尚未经舒适经历验证/);
+  assert.match(abilityExplanation(page, 'pace'), /通用基础耗时/);
   service.save({ experienceLevel: 'beginner', comfortableDistanceKm: 8, typicalLoadKg: 3 });
   page.onShow();
   assert.equal(rec().rows[0].value, '4.2–6 km');
-  assert.equal(rec().rows[0].sourceLabel, '自评初步建议');
+  assert.match(abilityExplanation(page, 'overview'), /自评初步建议/);
   assert.equal(rec().showSetup, false);
-  assert.equal(rec().rows.find(row => row.key === 'shortTripLoadKg').sourceLabel, '自评常见负重');
+  assert.match(abilityExplanation(page, 'load'), /自评常见负重 3 kg/);
   assert.equal(rec().rows.find(row => row.key === 'lowAscentPaceMinPerKm').value, '暂无可靠参考');
+});
+
+test('the unified evidence section has traceable bases and toggles without altering any indicator or stored record', () => {
+  const date = require('../utils/dateUtils').getTodayString();
+  service.save({ comfortableDistanceKm: 24, typicalLoadKg: 6 });
+  const history = [8, 9, 10, 11].map((distance, i) => ({
+    id: String(i), name: '验收路线 ' + i, date, distance, hours: 3, ascent: i < 2 ? 160 : 720, load: 3, effortLevel: 2
+  }));
+  history.push({ id: 'hard', name: '高负担经历', date, distance: 5, hours: 3, ascent: 160, effortLevel: 5 });
+  disk.set('trailready_trips', { trips: [], history });
+  const before = structuredClone(disk);
+  const page = open(historyDefinition);
+  const summary = structuredClone(page.data.ability.rows);
+  assert.equal(page.data.abilityExpanded, false);
+  assert.equal(summary.length, 6);
+  assert.ok(summary.every(row => Object.keys(row).sort().join(',') === 'key,label,value'));
+  assert.match(abilityExplanation(page, 'overview'), /多次历史校准.*5 条有效经历/);
+  assert.match(abilityExplanation(page, 'distance'), /距离采用 4 条舒适经历.*历史权重.*1 条用于谨慎下调/);
+  const examples = page.data.ability.sections.find(section => section.key === 'distance').examples;
+  assert.equal(examples.length, 3);
+  assert.match(examples[0], /验收路线 0.*8 km.*爬升 160 m/);
+  assert.match(abilityExplanation(page, 'pace'), /低爬升（≤30 m\/km） · 2 条历史经历/);
+  assert.match(abilityExplanation(page, 'pace'), /高爬升（>60 m\/km） · 2 条历史经历/);
+  assert.match(abilityExplanation(page, 'load'), /短途（≤10 km） · 3 条历史经历/);
+  assert.match(abilityExplanation(page, 'load'), /长途（>10 km） · 1 条历史经历/);
+  assert.match(abilityExplanation(page, 'comparison'), /自评可接受距离高于/);
+  assert.match(abilityExplanation(page, 'limitations'), /实际路线安全/);
+  for (const expanded of [true, false]) {
+    page.toggleAbility();
+    assert.equal(page.data.abilityExpanded, expanded);
+    assert.equal(page.data.profileExpanded, false);
+    assert.equal(page.data.historyExpanded, false);
+    assert.deepEqual(page.data.ability.rows, summary);
+  }
+  assert.deepEqual(disk, before);
 });
 
 test('onShow refreshes history without losing an in-progress self assessment draft', () => {

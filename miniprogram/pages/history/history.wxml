@@ -9,29 +9,30 @@
     </view>
 
     <view wx:if="{{ability}}" class="trail-card ability-card">
-      <view class="trail-heading ability-heading">
-        <text class="section-title">日常徒步参考</text><text class="trail-meta">{{ability.label}}</text>
-      </view>
+      <text class="section-title">我的日常徒步能力</text>
       <view class="history-stat-grid">
         <view wx:for="{{ability.rows}}" wx:key="key" class="history-stat">
-          <text class="trail-meta">{{item.label}}</text><text>{{item.value}}</text>
-          <text wx:if="{{item.sourceLabel}}" class="trail-meta ability-detail">{{item.sourceLabel}}</text>
-          <text wx:if="{{item.condition}}" class="trail-meta ability-detail">{{item.condition}}</text>
-          <text wx:if="{{abilityExpanded}}" class="trail-meta ability-detail">{{item.detail}}</text>
+          <text class="trail-meta">{{item.label}}</text>
+          <text class="ability-value {{item.value === '暂无可靠参考' ? 'ability-empty' : ''}}">{{item.value}}</text>
         </view>
       </view>
-      <text wx:for="{{ability.guidance}}" wx:key="*this" class="trail-meta ability-detail">{{item}}</text>
-      <navigator wx:if="{{ability.showSetup && !profileError}}" class="trail-link ability-toggle" url="/pages/profile/profile">填写自评距离</navigator>
-      <text class="trail-meta ability-detail">全程配速按总用时计算，含记录中的休息。</text>
       <button class="trail-link ability-toggle" bindtap="toggleAbility" aria-expanded="{{abilityExpanded}}">
-        <text>计算依据</text><view class="expansion-arrow {{abilityExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
+        <text>{{abilityExpanded ? '收起计算依据' : '查看计算依据'}}</text>
+        <view class="expansion-arrow {{abilityExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
       </button>
-      <block wx:if="{{abilityExpanded}}">
-        <text wx:if="{{ability.counts.highEffort}}" class="trail-meta">有 {{ability.counts.highEffort}} 条体感 4–5 级的高负担经历，相近记录用于谨慎下调。</text>
-        <text wx:if="{{ability.baseTimeNote}}" class="trail-meta ability-detail">{{ability.baseTimeNote}}</text>
-        <text wx:for="{{ability.comparisons}}" wx:key="key" class="trail-meta">{{item.text}}</text>
-        <text wx:for="{{ability.limitations}}" wx:key="*this" class="trail-meta ability-detail">{{item}}</text>
-      </block>
+      <view wx:if="{{abilityExpanded}}" class="ability-basis">
+        <view wx:for="{{ability.sections}}" wx:for-item="section" wx:key="key"
+          id="ability-basis-{{section.key}}" class="ability-basis-section">
+          <text class="ability-basis-title">{{section.title}}</text>
+          <text wx:for="{{section.lines}}" wx:key="*this" class="trail-meta">{{item}}</text>
+          <block wx:if="{{section.examples && section.examples.length}}">
+            <text class="ability-example-title">参与计算的经历示例</text>
+            <text wx:for="{{section.examples}}" wx:key="*this" class="trail-meta">{{item}}</text>
+          </block>
+          <navigator wx:if="{{section.key === 'overview' && ability.showSetup && !profileError}}"
+            class="trail-link" url="/pages/profile/profile">填写自评距离</navigator>
+        </view>
+      </view>
     </view>
 
     <view class="trail-card profile-card">

@@ -1,11 +1,7 @@
 .profile-row { display: flex; align-items: center; gap: 14rpx; min-height: 48px; }
-.profile-row + .profile-row, .profile-field, .stat-row, .load-row { border-top: 1rpx solid #e5e9e6; }
+.profile-row + .profile-row, .profile-field { border-top: 1rpx solid #e5e9e6; }
 .profile-row picker, .profile-row input { flex: 1; min-width: 0; min-height: 44px; text-align: right; }
 .profile-row picker view { line-height: 44px; }
-.profile-value { margin-left: auto; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .profile-error { display: block; color: #a44534; font-size: 26rpx; margin: 10rpx 0; }
 .field-unit { color: #52665a; font-size: 25rpx; }
-.stat-row { padding: 22rpx 0; }
-.stat-row .trail-heading { margin-bottom: 6rpx; }
-.load-row { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; }
 .profile-screen .profile-save { margin-top: 22rpx; }

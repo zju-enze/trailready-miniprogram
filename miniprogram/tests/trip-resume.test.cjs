@@ -65,6 +65,7 @@ test('手工经历可以独立于计划保存，重开后能修改及删除', ()
   let page = open('history');
   page.edit(event({}));
   page.changeDate(event({}, '2020-05-06'));
+  page.changeEffort(event({}, '3'));
   const values = { name: '九溪', note: '下雨折返', distance: '7.5', ascent: '', hours: '2', load: '' };
   page.saveRecord(event({}, values));
   page = open('history');
@@ -72,11 +73,11 @@ test('手工经历可以独立于计划保存，重开后能修改及删除', ()
   assert.equal(record.distance, 7.5);
   assert.equal(record.ascent, null);
   assert.equal(trips.read().trips.length, 0);
-  page.edit(event({ id: record.id }));
+  page.edit(event({ index: record.index }));
   page.saveRecord(event({}, { ...values, distance: '8' }));
   assert.equal(page.data.records.length, 1);
   assert.equal(page.data.records[0].distance, 8);
-  page.edit(event({ id: record.id }));
+  page.edit(event({ index: record.index }));
   page.remove();
   assert.equal(open('history').data.records.length, 0);
 });

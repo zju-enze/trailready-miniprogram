@@ -1,5 +1,5 @@
-const trips = require('./trips');
 const { getTodayString } = require('./dateUtils');
+const { inspectRecord, metricNumber, readHistory } = require('./hikeHistory');
 
 const STORAGE = 'trailready_user_profile';
 const VERSION = 1;
@@ -34,21 +34,6 @@ function isObject(value) {
 
 function failure(code, message, fields) {
   return { ok: false, error: { code, message, ...(fields ? { fields } : {}) } };
-}
-
-// Missing values stay null; coercible booleans and objects are invalid.
-function metricNumber(value) {
-  if (value == null) return null;
-  if (typeof value === 'string') {
-    value = value.trim();
-    if (!value) return null;
-    if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)) return undefined;
-    value = Number(value);
-  }
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
-    return undefined;
-  }
-  return value;
 }
 
 function normalizeAssessment(input) {
@@ -137,24 +122,8 @@ function save(changes) {
   }
 }
 
-function validHistoryDate(value, today) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value > today) return false;
-  const date = new Date(value + 'T00:00:00');
-  if (!Number.isFinite(date.getTime())) return false;
-  return date.getFullYear() === Number(value.slice(0, 4)) && date.getMonth() + 1 === Number(value.slice(5, 7))
-    && date.getDate() === Number(value.slice(8, 10));
-}
-
-function getPerformanceStats() {
-  let book;
-  try {
-    book = trips.read();
-  } catch {
-    return failure('STORAGE_READ_FAILED', '暂时无法读取徒步经历，请重试。');
-  }
-  if (!isObject(book) || (book.history != null && !Array.isArray(book.history))) {
-    return failure('INVALID_HISTORY', '徒步经历格式异常，请核对原始记录。');
-  }
+function getPerformanceStats(history = readHistory()) {
+  if (!history.ok) return history;
   const stats = {
     source: 'trailready_trips.history', totalHikes: 0, ignoredRecordCount: 0,
     maxDistanceKm: null, maxAscentM: null, maxDurationHours: null, maxLoadKg: null,
@@ -163,19 +132,17 @@ function getPerformanceStats() {
     maxRecords: { distance: null, ascent: null, hours: null, load: null }, loadRecords: []
   };
   const today = getTodayString();
-  for (const record of book.history || []) {
-    if (!isObject(record) || typeof record.name !== 'string' || !record.name.trim() || !validHistoryDate(record.date, today)) {
+  for (const raw of history.records) {
+    const { validRecord, record, fields, missingFields } = inspectRecord(raw, today);
+    if (!validRecord) {
       stats.ignoredRecordCount++;
       continue;
     }
     stats.totalHikes++;
-    const source = { id: typeof record.id === 'string' ? record.id : null, name: record.name, date: record.date };
+    const source = { id: record.id, name: record.name, date: record.date };
     for (const metric of HISTORY_METRICS) {
-      const value = metricNumber(record[metric.key]);
-      if (value === undefined) {
-        stats.invalidValueCounts[metric.key]++;
-        continue;
-      }
+      const value = record[metric.key];
+      if (fields[metric.key] && !missingFields.includes(metric.key)) stats.invalidValueCounts[metric.key]++;
       if (value === null) continue;
       stats.metricCounts[metric.key]++;
       if (stats[metric.maximum] === null || value > stats[metric.maximum]) {

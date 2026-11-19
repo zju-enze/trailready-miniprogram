@@ -66,11 +66,17 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 ## 个人能力画像
 
-从「经历」顶部进入「个人能力画像」，可编辑徒步经验、自评体能、可接受距离、累计爬升、徒步时长和常见负重。所有字段可留空，爬升和负重允许填 0。保存后资料保存在微信本地，取消编辑会丢弃当前草稿。
+「经历」主页面直接显示历史表现和自评摘要。「编辑自评」打开原画像页的表单，可编辑徒步经验、自评体能、可接受距离、累计爬升、徒步时长和常见负重。所有自评字段可留空，爬升和负重允许填 0。保存或取消会返回「经历」。日常徒步能力区域显示「能力评估待完善」。
 
 `utils/userProfile.js` 导出 `read()`、`save(changes)` 和 `getPerformanceStats()`。`save` 接收自评字段的完整表单或部分更新，使用独立对象 Key `trailready_user_profile`，包含 `version`、`selfAssessment` 和 `updatedAt`。数值字段为 `comfortableDistanceKm`、`comfortableAscentM`、`comfortableDurationHours`、`typicalLoadKg`。调用返回 `{ ok: true, ... }` 或 `{ ok: false, error }`，读取损坏数据及未来版本时保留原存储。
 
-历史统计即时读取全部 `trailready_trips.history`，有效经历需要路线名称与合法的已完成日期，个别数值缺失仍计次数。统计返回每项的有效条数、极值来源记录、异常条数和负重记录；旧数值字符串按字段读取兼容。距离为 km，累计爬升为 m，用时为小时，负重为 kg。历史最长记录用时表示整次徒步用时，历史最佳表现仅供参考。画像模块通过本地读写独立运行。
+已完成经历保存时要求路线名称、有效且不晚于今天的日期、正数里程（km）、正数用时（小时）和五级体感。爬升（m）和负重（kg）允许留空或填非负数。备注继续单独保存。五级体感的标准字段为数值 `effortLevel`（1 到 5），新保存记录也保留 `effort` 的中文标签，供当前规划链路读取。
+
+旧版「轻松」「适中」「吃力」分别对应 2、3、4。未知旧体感显示原文并提示补充，用户选择新等级并保存时会保留原文到 `legacyEffort`。读取旧数据时原记录保持原样。缺少必填数据或格式异常的记录在列表标为「信息待完善」，可进入编辑修正。
+
+历史统计读取全部 `trailready_trips.history`。路线名称和完成日期有效的记录计入次数，各指标单独验证。旧记录的 0 km 和 0 小时不再参与极值，0 m 和 0 kg 仍有效。历史最长记录用时表示整次徒步用时，历史最佳表现仅供参考。统计服务继续提供每项有效条数和记录来源。
+
+后续评估可以使用 `utils/hikeHistory.js` 的 `readHistory()` 读取原始记录，用 `inspectRecord(record)` 得到规范化字段、`validRecord`、`eligible`、字段错误和缺失字段，再通过 `utils/userProfile.js` 的 `read()` 获取自评。`eligible` 仅表示通过数据校验。
 
 ## 代码与测试
 
@@ -86,7 +92,7 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 在仓库根目录运行以下测试。测试使用模拟服务响应，覆盖同名地点、预报缺失、跨日路线衔接、装备匹配、草稿确认、手工计划、进度恢复和写入失败。
 
 ```powershell
-node --test tests/https-preview.test.cjs tests/trail-assistant.test.cjs miniprogram/tests/ai-plan.test.cjs miniprogram/tests/packing.test.cjs miniprogram/tests/trip-resume.test.cjs miniprogram/tests/weather.test.cjs miniprogram/tests/user-profile.test.cjs miniprogram/tests/profile-page.test.cjs
+node --test tests/*.test.cjs miniprogram/tests/*.test.cjs
 ```
 
 `trailready_trips` 保存用户的行程与经历，`trail_gear_closet` 保存个人库存。新用户从空库存开始。已安装旧版本且曾在行程中主动选过的样例物品会保留。清除微信小程序数据会清除本地记录。

@@ -1,50 +1,14 @@
 const profileService = require('../../utils/userProfile');
 
 const { EXPERIENCE_OPTIONS, FITNESS_OPTIONS, METRIC_FIELDS } = profileService;
-const STAT_FIELDS = [
-  { key: 'distance', maximum: 'maxDistanceKm', label: '历史最长距离', unit: 'km' },
-  { key: 'ascent', maximum: 'maxAscentM', label: '历史最大累计爬升', unit: 'm' },
-  { key: 'hours', maximum: 'maxDurationHours', label: '历史最长记录用时', unit: '小时' },
-  { key: 'load', maximum: 'maxLoadKg', label: '历史最大负重', unit: 'kg' }
-];
-
-function selfRows(assessment) {
-  return [
-    { key: 'experienceLevel', label: '徒步经验', value: EXPERIENCE_OPTIONS.find(option => option.value === assessment.experienceLevel).label },
-    { key: 'fitnessLevel', label: '自评体能', value: FITNESS_OPTIONS.find(option => option.value === assessment.fitnessLevel).label },
-    ...METRIC_FIELDS.map(field => ({ key: field.key, label: field.label,
-      value: assessment[field.key] == null ? '尚未填写' : assessment[field.key] + ' ' + field.unit }))
-  ];
-}
-
 Page({
   data: {
-    editing: false, profileError: '', statsError: '', saveError: '', errors: {}, draft: {},
-    selfRows: [], statRows: [], stats: null, recentLoads: [], dataWarning: '',
+    editing: false, profileError: '', saveError: '', errors: {}, draft: {},
     experienceOptions: EXPERIENCE_OPTIONS, fitnessOptions: FITNESS_OPTIONS, metricFields: METRIC_FIELDS,
     experienceIndex: 0, fitnessIndex: 0
   },
   onShow() {
-    const result = profileService.read();
-    const performance = profileService.getPerformanceStats();
-    const patch = {
-      profileError: result.ok ? '' : result.error.message,
-      selfRows: result.ok ? selfRows(result.profile.selfAssessment) : [],
-      statsError: performance.ok ? '' : performance.error.message, stats: performance.ok ? performance.stats : null,
-      statRows: [], recentLoads: [], dataWarning: ''
-    };
-    if (performance.ok) {
-      const stats = performance.stats;
-      patch.statRows = STAT_FIELDS.map(field => ({ ...field,
-        value: stats[field.maximum] == null ? '暂无记录' : stats[field.maximum] + ' ' + field.unit,
-        count: stats.metricCounts[field.key], record: stats.maxRecords[field.key] }));
-      patch.recentLoads = stats.loadRecords.slice(0, 5).map((record, index) => ({ ...record, key: index }));
-      const invalidFields = Object.values(stats.invalidValueCounts).reduce((sum, count) => sum + count, 0);
-      if (stats.ignoredRecordCount || invalidFields) {
-        patch.dataWarning = '已跳过 ' + stats.ignoredRecordCount + ' 条不完整或日期异常的记录、' + invalidFields + ' 个异常数值，请在经历中核对。';
-      }
-    }
-    this.setData(patch);
+    if (!this.data.editing) this.edit();
   },
   edit() {
     const result = profileService.read();
@@ -77,13 +41,11 @@ Page({
     if (!result.ok) {
       return this.setData({ errors: result.error.fields || {}, saveError: result.error.message });
     }
-    this.setData({ editing: false, draft: {}, errors: {}, saveError: '' });
-    this.onShow();
     wx.showToast({ title: '自评已保存', icon: 'success' });
+    this.cancel();
   },
   cancel() {
     this.setData({ editing: false, draft: {}, errors: {}, saveError: '' });
-    this.onShow();
-  },
-  openHistory() { wx.switchTab({ url: '/pages/history/history' }); }
+    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/history/history' }) });
+  }
 });

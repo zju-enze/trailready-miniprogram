@@ -163,7 +163,7 @@ test('all history is counted, including an oldest maximum beyond the most recent
   assert.equal(stats.source, TRIPS + '.history');
 });
 
-test('missing metrics still count as hikes; zero and legacy numeric strings remain valid', () => {
+test('missing metrics still count as hikes; zero ascent and load and legacy decimal strings are valid', () => {
   setHistory([hike('missing'), hike('zero', { distance: 0, ascent: 0, hours: 0, load: 0 }),
     hike('decimal', { distance: ' 8.5 ', ascent: '120.5', hours: '.5', load: '4' })]);
   const { stats } = service.getPerformanceStats();
@@ -172,7 +172,8 @@ test('missing metrics still count as hikes; zero and legacy numeric strings rema
   assert.equal(stats.maxAscentM, 120.5);
   assert.equal(stats.maxDurationHours, 0.5);
   assert.equal(stats.maxLoadKg, 4);
-  assert.deepEqual(stats.metricCounts, { distance: 2, ascent: 2, hours: 2, load: 2 });
+  assert.deepEqual(stats.metricCounts, { distance: 1, ascent: 2, hours: 1, load: 2 });
+  assert.deepEqual(stats.invalidValueCounts, { distance: 1, ascent: 0, hours: 1, load: 0 });
   setHistory([hike('allMissing', { distance: null, ascent: '', hours: ' ', load: undefined })]);
   const missing = service.getPerformanceStats().stats;
   assert.equal(missing.totalHikes, 1);

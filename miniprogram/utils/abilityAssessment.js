@@ -2,7 +2,6 @@ const { inspectRecord, metricNumber } = require('./hikeHistory');
 
 const RULES = Object.freeze({
   minimumSamples: 3,
-  quartileSamples: 5,
   supportedSamples: 6,
   minimumCoverage: 0.75,
   recentDays: 180,
@@ -18,21 +17,26 @@ const RULES = Object.freeze({
   climbMPerHour: 600
 });
 
+const DAILY_RULES = Object.freeze({
+  quartileSamples: 5,
+  distanceRadiusRatio: 0.40,
+  minimumDistanceRadiusKm: 1.5,
+  distanceGapRatio: 0.25,
+  minimumDistanceGapKm: 2.5,
+  minimumGroupShare: 2 / 3,
+  lowAscentMaxMPerKm: 30,
+  moderateAscentMaxMPerKm: 60,
+  shortTripMaxKm: 10
+});
+
 const SOURCE = 'trailready_trips.history';
 const DAY_MS = 86400000;
 const ROUTE_LIMIT = '耗时为经验估计，可能包含休息时间。高海拔、极端天气和复杂技术路线超出模型适用范围。';
-const METRICS = [
-  { key: 'distanceKm', unit: 'km' },
-  { key: 'ascentM', unit: 'm', field: 'ascent' },
-  { key: 'paceMinPerKm', unit: 'min/km' },
-  { key: 'durationHours', unit: 'h' },
-  { key: 'loadKg', unit: 'kg', field: 'load' }
-];
 const SELF_FIELDS = [
-  { key: 'comfortableDistanceKm', metric: 'distanceKm', minimumDifference: 1 },
-  { key: 'comfortableAscentM', metric: 'ascentM', minimumDifference: 100 },
-  { key: 'comfortableDurationHours', metric: 'durationHours', minimumDifference: 0.5 },
-  { key: 'typicalLoadKg', metric: 'loadKg', minimumDifference: 1 }
+  { key: 'comfortableDistanceKm', metrics: ['distanceKm'], minimumDifference: 1 },
+  { key: 'comfortableAscentM', metrics: ['ascentM'], minimumDifference: 100 },
+  { key: 'comfortableDurationHours', metrics: [] },
+  { key: 'typicalLoadKg', metrics: ['shortTripLoadKg', 'longTripLoadKg'], minimumDifference: 1 }
 ];
 
 function prepareHistory(history, asOfDate) {
@@ -99,25 +103,53 @@ function hasSupportedEvidence(sampleCount, coverage, ratedShare, quality) {
     && quality.spanDays >= RULES.minimumSpanDays && quality.diverse;
 }
 
-function summarizeMetric(samples, metric, asOfMs, baseSupported) {
-  const present = samples.filter(sample => sample[metric.key] !== null);
-  const invalidCount = samples.filter(sample => sample.invalidFields.includes(metric.field)).length;
+function typicalDistanceGroup(samples) {
+  if (samples.length < RULES.minimumSamples) return [];
+  const sorted = [...samples].sort((a, b) => a.distanceKm - b.distanceKm);
+  const center = quantile(sorted.map(sample => sample.distanceKm), 0.5);
+  const radius = Math.max(DAILY_RULES.minimumDistanceRadiusKm, center * DAILY_RULES.distanceRadiusRatio);
+  const group = sorted.filter(sample => Math.abs(sample.distanceKm - center) <= radius);
+  if (group.length < RULES.minimumSamples || group.length / samples.length < DAILY_RULES.minimumGroupShare) return [];
+  const maxGap = Math.max(DAILY_RULES.minimumDistanceGapKm, center * DAILY_RULES.distanceGapRatio);
+  const hasGap = group.some((sample, i) => i > 0 && sample.distanceKm - group[i - 1].distanceKm > maxGap);
+  return hasGap ? [] : group;
+}
+
+function ascentBand({ ascentM, distanceKm }) {
+  if (ascentM === null) return 'unknown';
+  const ascentPerKm = ascentM / distanceKm;
+  if (ascentPerKm <= DAILY_RULES.lowAscentMaxMPerKm) return 'low';
+  return ascentPerKm <= DAILY_RULES.moderateAscentMaxMPerKm ? 'moderate' : 'high';
+}
+
+// Each metric reports availability in its own cohort. Missing/invalid ascent on
+// an otherwise valid hike counts as unclassified for both pace metrics.
+function summarizeMetric(samples, asOfMs, {
+  key, unit, requiredKey = key, field, condition = null, selected,
+  insufficientReason = 'insufficient_samples'
+}) {
+  const present = samples.filter(sample => sample[requiredKey] !== null);
+  const invalidCount = field ? samples.filter(sample => sample.invalidFields.includes(field)).length : 0;
   const result = {
-    unit: metric.unit, status: 'insufficient', sampleCount: present.length,
+    unit, condition, status: 'insufficient', reason: insufficientReason, sampleCount: present.length, usedCount: 0,
     missingCount: samples.length - present.length - invalidCount, invalidCount,
-    method: null, range: null, median: null, observedRange: null, recordRefs: present.map(sample => sample.ref)
+    method: null, range: null, median: null, observedRange: bounds(present.map(sample => sample[key])), recordRefs: []
   };
-  if (present.length < RULES.minimumSamples) return result;
-  const values = present.map(sample => sample[metric.key]).sort((a, b) => a - b);
-  const observedRange = { low: values[0], high: values[values.length - 1] };
-  const isQuartile = present.length >= RULES.quartileSamples;
-  const supported = baseSupported && hasSupportedEvidence(
-    present.length, present.length / samples.length, 1, evidence(present, asOfMs)
-  );
-  return { ...result, status: supported ? 'supported' : 'preliminary',
-    method: isQuartile ? 'interquartile' : 'observed',
-    range: isQuartile ? { low: quantile(values, 0.25), high: quantile(values, 0.75) } : observedRange,
-    median: quantile(values, 0.5), observedRange };
+  const used = selected ?? present;
+  if (used.length < RULES.minimumSamples) return result;
+  const values = used.map(sample => sample[key]).sort((a, b) => a - b);
+  const { recentShare, spanDays } = evidence(used, asOfMs);
+  const supported = used.length >= RULES.supportedSamples && used.length / samples.length >= RULES.minimumCoverage
+    && recentShare >= RULES.minimumRecentShare && spanDays >= RULES.minimumSpanDays;
+  let range = null;
+  let method = 'median';
+  if (key === 'distanceKm') {
+    const quartiles = values.length >= DAILY_RULES.quartileSamples;
+    method = quartiles ? 'typical_group_interquartile' : 'typical_group_range';
+    range = quartiles ? { low: quantile(values, 0.25), high: quantile(values, 0.75) } : bounds(values);
+  }
+  return { ...result, status: supported ? 'supported' : 'preliminary', reason: null, usedCount: used.length,
+    method, range, median: quantile(values, 0.5), recordRefs: used.map(sample => sample.ref) };
 }
 
 function compareSelfAssessment(selfAssessment, metrics) {
@@ -126,53 +158,80 @@ function compareSelfAssessment(selfAssessment, metrics) {
     fitnessLevel: selfAssessment?.fitnessLevel || ''
   };
   const differences = [];
-  for (const { key, metric, minimumDifference } of SELF_FIELDS) {
+  for (const { key, metrics: comparisonKeys, minimumDifference } of SELF_FIELDS) {
     const value = metricNumber(selfAssessment?.[key]) ?? null;
     values[key] = value;
-    const observed = metrics[metric].observedRange;
-    if (value === null || !observed) continue;
-    const tolerance = Math.max(minimumDifference, observed.high * RULES.selfAssessmentTolerance);
-    if (value > observed.high + tolerance || value < observed.low - tolerance) {
-      differences.push({ key, metric, value, observedRange: observed, direction: value > observed.high ? 'above' : 'below' });
+    if (value === null) continue;
+    for (const metric of comparisonKeys) {
+      const { range, observedRange, status } = metrics[metric];
+      if (status === 'insufficient') continue;
+      const comparisonRange = range ?? observedRange;
+      const tolerance = Math.max(minimumDifference, comparisonRange.high * RULES.selfAssessmentTolerance);
+      if (value > comparisonRange.high + tolerance || value < comparisonRange.low - tolerance) {
+        differences.push({ key, metric, value, comparisonRange, direction: value > comparisonRange.high ? 'above' : 'below' });
+      }
     }
   }
   return { source: 'trailready_user_profile', values, differences };
 }
 
-// Pass the same local calendar date to reproduce the result. Ranges are marginal;
-// referenceRecords provide the original distance/ascent pairs. ref.index is the
-// position in this input snapshot and also identifies older records with no ID.
+// Pass the same local calendar date to reproduce the result. Each metric provides
+// its own condition and supporting recordRefs. referenceRecords keep the original
+// distance/ascent pairs, and ref.index identifies older records without an ID.
 function generateDailyAbility(history, selfAssessment, asOfDate) {
   const { asOfMs, totalCount, usable, needsReview } = prepareHistory(history, asOfDate);
   const rated = usable.filter(record => record.effortLevel !== null);
-  const referenceRecords = rated.filter(record => record.effortLevel <= 3);
+  const referenceRecords = rated.filter(record => record.effortLevel <= 3)
+    .map(record => ({ ...record, ascentBand: ascentBand(record) }));
   const moderateCount = referenceRecords.filter(record => record.effortLevel === 3).length;
   const highEffortRecords = rated.filter(record => record.effortLevel >= 4);
-  const paired = referenceRecords.filter(record => record.ascentM !== null);
-  const quality = {
-    ...evidence(paired, asOfMs), pairedCount: paired.length,
-    usableShare: totalCount ? usable.length / totalCount : 0,
-    ratedShare: usable.length ? rated.length / usable.length : 0,
-    pairedShare: referenceRecords.length ? paired.length / referenceRecords.length : 0
+  const typical = typicalDistanceGroup(referenceRecords);
+  const ascentCandidates = typical.length ? typical : referenceRecords;
+  const ascentPairs = typical.filter(record => record.ascentM !== null);
+  const ascentDistanceRange = bounds(ascentPairs.map(record => record.distanceKm));
+  const { lowAscentMaxMPerKm, moderateAscentMaxMPerKm, shortTripMaxKm } = DAILY_RULES;
+  const metrics = {
+    distanceKm: summarizeMetric(referenceRecords, asOfMs, {
+      key: 'distanceKm', unit: 'km', selected: typical,
+      insufficientReason: referenceRecords.length >= RULES.minimumSamples ? 'dispersed_distances' : 'insufficient_samples'
+    }),
+    ascentM: summarizeMetric(ascentCandidates, asOfMs, {
+      key: 'ascentM', unit: 'm', field: 'ascent', condition: { distanceKm: ascentDistanceRange },
+      selected: ascentPairs,
+      insufficientReason: typical.length ? 'insufficient_samples' : 'no_distance_group'
+    }),
+    lowAscentPaceMinPerKm: summarizeMetric(
+      referenceRecords.filter(record => record.ascentBand === 'low' || record.ascentBand === 'unknown'), asOfMs,
+      { key: 'paceMinPerKm', unit: 'min/km', requiredKey: 'ascentM', field: 'ascent',
+        condition: { ascentMPerKm: { maxInclusive: lowAscentMaxMPerKm } } }
+    ),
+    highAscentPaceMinPerKm: summarizeMetric(
+      referenceRecords.filter(record => record.ascentBand === 'high' || record.ascentBand === 'unknown'), asOfMs,
+      { key: 'paceMinPerKm', unit: 'min/km', requiredKey: 'ascentM', field: 'ascent',
+        condition: { ascentMPerKm: { minExclusive: moderateAscentMaxMPerKm } } }
+    ),
+    shortTripLoadKg: summarizeMetric(referenceRecords.filter(record => record.distanceKm <= shortTripMaxKm), asOfMs, {
+      key: 'loadKg', unit: 'kg', field: 'load', condition: { distanceKm: { maxInclusive: shortTripMaxKm } }
+    }),
+    longTripLoadKg: summarizeMetric(referenceRecords.filter(record => record.distanceKm > shortTripMaxKm), asOfMs, {
+      key: 'loadKg', unit: 'kg', field: 'load', condition: { distanceKm: { minExclusive: shortTripMaxKm } }
+    })
   };
-  const supported = quality.pairedShare >= RULES.minimumCoverage
-    && hasSupportedEvidence(paired.length, quality.usableShare, quality.ratedShare, quality);
-  const enough = referenceRecords.length >= RULES.minimumSamples;
-  let status = 'insufficient';
-  if (enough) status = supported ? 'supported' : 'preliminary';
-  const metrics = {};
-  for (const metric of METRICS) metrics[metric.key] = summarizeMetric(referenceRecords, metric, asOfMs, supported);
+  const results = Object.values(metrics);
+  const availableCount = results.filter(metric => metric.status !== 'insufficient').length;
+  let status = availableCount ? 'preliminary' : 'insufficient';
+  if (results.every(metric => metric.status === 'supported')) status = 'supported';
   return {
-    asOfDate, source: SOURCE, status, metrics, quality,
-    message: enough ? null : `记录至少 ${RULES.minimumSamples} 次体感 1–3 级、距离和用时完整的徒步后，可查看日常参考。`,
+    asOfDate, source: SOURCE, status, availableCount, metrics,
     counts: { total: totalCount, usable: usable.length, reference: referenceRecords.length,
       comfortable: referenceRecords.length - moderateCount, moderate: moderateCount, highEffort: highEffortRecords.length,
       unrated: usable.length - rated.length },
     referenceRecords, highEffortRecords, needsReview,
     selfAssessment: compareSelfAssessment(selfAssessment, metrics),
     limitations: [
-      '距离与爬升分别统计，两项上限不能组合为安全路线。',
-      '全程配速和记录用时可能含休息。实际用时仍取决于具体路线和条件。'
+      '各项以体感 1–3 级的经历分组计算。距离和爬升需按原记录配对理解。',
+      '爬升分组按每公里累计爬升计算，仅用于历史比较。',
+      '负重仅反映个人历史携带表现，实际行前装备需求另行评估。'
     ]
   };
 }

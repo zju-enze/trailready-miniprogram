@@ -237,23 +237,30 @@ test('history save, edit and delete immediately refresh statistics on the main t
 test('the visible daily reference recomputes after history and self assessment changes', () => {
   disk.set('trailready_trips', { trips: [], history: [
     { id: 'old-a', name: 'A', date: '2025-01-01', distance: 8, hours: 3, ascent: 300, effortLevel: 2 },
-    { id: 'old-b', name: 'B', date: '2025-01-02', distance: 12, hours: 5, ascent: 650, effortLevel: 3 }
+    { id: 'old-b', name: 'B', date: '2025-01-02', distance: 10, hours: 5, ascent: 650, effortLevel: 3 }
   ] });
   const page = open(historyDefinition);
   const distance = () => page.data.ability.rows.find(row => row.key === 'distanceKm').value;
   assert.equal(page.data.ability.status, 'insufficient');
   assert.equal(distance(), '暂无可靠参考');
+  assert.equal(page.data.ability.rows.length, 6);
+  assert.ok(page.data.ability.rows.every(row => row.value === '暂无可靠参考'));
+  assert.equal(page.data.abilityExpanded, false);
+  page.toggleAbility();
   page.edit({ currentTarget: { dataset: {} } });
   page.changeEffort({ detail: { value: '2' } });
-  const values = { name: 'C', distance: '15', ascent: '500', hours: '6' };
+  const values = { name: 'C', distance: '11', ascent: '500', hours: '6' };
   page.saveRecord({ detail: { value: values } });
   assert.equal(page.data.ability.status, 'preliminary');
-  assert.equal(distance(), '8–15 km');
+  assert.equal(distance(), '8–11 km');
+  assert.equal(page.data.ability.rows.find(row => row.key === 'ascentM').condition, '对应距离 8–11 km');
+  assert.equal(page.data.ability.rows.find(row => row.key === 'longTripLoadKg').value, '暂无可靠参考');
   assert.equal(page.data.profileExpanded, false);
+  assert.equal(page.data.abilityExpanded, true);
 
   const { index } = page.data.recentRecords[0];
   page.edit({ currentTarget: { dataset: { index } } });
-  page.saveRecord({ detail: { value: { ...values, distance: '10' } } });
+  page.saveRecord({ detail: { value: { ...values, distance: '12' } } });
   assert.equal(distance(), '8–12 km');
   service.save({ comfortableDistanceKm: 24 });
   page.onShow();

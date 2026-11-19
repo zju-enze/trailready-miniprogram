@@ -7,11 +7,12 @@ const { generateDailyAbility } = require('../../utils/abilityAssessment');
 const HISTORY_PREVIEW_LIMIT = 3;
 
 const ABILITY_FIELDS = [
-  { key: 'distanceKm', label: '参考徒步距离', unit: 'km' },
-  { key: 'ascentM', label: '参考累计爬升', unit: 'm' },
-  { key: 'paceMinPerKm', label: '历史全程参考配速', unit: '分/km' },
-  { key: 'durationHours', label: '历史常见完成时长', unit: '小时' },
-  { key: 'loadKg', label: '负重参考', unit: 'kg' }
+  { key: 'distanceKm', label: '适宜徒步距离', unit: 'km' },
+  { key: 'ascentM', label: '适宜累计爬升', unit: 'm' },
+  { key: 'lowAscentPaceMinPerKm', label: '低爬升参考全程配速', unit: '分/km' },
+  { key: 'highAscentPaceMinPerKm', label: '高爬升参考全程配速', unit: '分/km' },
+  { key: 'shortTripLoadKg', label: '短途个人参考负重', unit: 'kg' },
+  { key: 'longTripLoadKg', label: '长途个人参考负重', unit: 'kg' }
 ];
 const ABILITY_STATUS = {
   insufficient: '数据不足', preliminary: '初步历史参考', supported: '历史依据相对充分'
@@ -21,23 +22,53 @@ function displayNumber(value) {
   return value > 0 && value < 0.1 ? '<0.1' : String(Number(value.toFixed(1)));
 }
 
-function dailyAbilityView({ status, metrics, counts, message, selfAssessment, limitations }) {
+function displayRange({ low, high }) {
+  const start = displayNumber(low);
+  const end = displayNumber(high);
+  return start === end ? start : start + '–' + end;
+}
+
+function conditionLabel(condition) {
+  const density = condition?.ascentMPerKm;
+  const distance = condition?.distanceKm;
+  if (distance?.low != null) return '对应距离 ' + displayRange(distance) + ' km';
+  const bounds = density ?? distance;
+  if (!bounds) return '';
+  const limit = bounds.maxInclusive == null ? '>' + bounds.minExclusive : '≤' + bounds.maxInclusive;
+  return limit + (density ? ' m/km' : ' km');
+}
+
+function dailyAbilityView({ status, metrics, counts, selfAssessment, limitations }) {
   const rows = ABILITY_FIELDS.map(({ key, label, unit }) => {
-    const { range, method, median, sampleCount } = metrics[key];
-    const samples = sampleCount + ' 条记录';
-    if (!range) return { key, label, value: '暂无可靠参考', detail: samples };
-    const low = displayNumber(range.low);
-    const high = displayNumber(range.high);
-    const value = (low === high ? low : low + '–' + high) + ' ' + unit;
-    const rangeType = method === 'interquartile' ? '中间一半 · 中位 ' + displayNumber(median) + ' ' + unit : '实际观察';
-    return { key, label, value, detail: rangeType + ' · ' + samples };
+    const metric = metrics[key];
+    const { range, method, median, sampleCount, usedCount } = metric;
+    const condition = conditionLabel(metric.condition);
+    if (median === null) {
+      const reason = {
+        dispersed_distances: '距离过于分散',
+        no_distance_group: '缺少可比距离组',
+        insufficient_samples: '样本不足'
+      }[metric.reason];
+      const detail = [condition, reason, sampleCount + ' 条有效记录'].filter(Boolean).join(' · ');
+      return { key, label, value: '暂无可靠参考', detail };
+    }
+    const value = (range ? displayRange(range) : displayNumber(median)) + ' ' + unit;
+    const basis = {
+      typical_group_range: '典型距离组',
+      typical_group_interquartile: '典型组中间一半',
+      median: '历史中位数'
+    }[method];
+    const detail = [key === 'ascentM' ? '' : condition, ABILITY_STATUS[metric.status], basis, usedCount + ' 条'].filter(Boolean).join(' · ');
+    return { key, label, value, detail, condition: key === 'ascentM' ? condition : '' };
   });
-  const comparisons = selfAssessment.differences.map(({ key, direction }) => {
+  const comparisons = selfAssessment.differences.map(({ key, metric, direction }) => {
     const { label } = profile.METRIC_FIELDS.find(field => field.key === key);
     const result = direction === 'above' ? '高于' : '低于';
-    return { key, text: '自评' + label + result + '已有日常参考记录的范围。' };
+    const group = { distanceKm: '典型距离组的参考', ascentM: '相近距离的历史',
+      shortTripLoadKg: '短途历史', longTripLoadKg: '长途历史' }[metric];
+    return { key: metric, text: '自评' + label + result + group + '范围。' };
   });
-  return { status, label: ABILITY_STATUS[status], rows, counts, message, comparisons, limitations };
+  return { status, label: ABILITY_STATUS[status], rows, counts, comparisons, limitations };
 }
 
 const STAT_FIELDS = [

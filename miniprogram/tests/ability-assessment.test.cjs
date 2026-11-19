@@ -18,66 +18,76 @@ const daily = (records, self = null) => generateDailyAbility(records, self, asOf
 const estimate = (records, target = route) => estimateTripDuration(target, records, asOfDate);
 const approximately = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} ≈ ${expected}`);
 
-test('zero to two daily samples produce counts and an explanation without a range or median', () => {
+test('zero to two daily samples produce observation counts without a numerical recommendation', () => {
   for (const records of [[], [A], [A, B], [A, B, C]]) {
     const result = daily(records);
     assert.equal(result.status, 'insufficient');
-    assert.match(result.message, /至少 3 次/);
+    assert.equal(result.availableCount, 0);
+    assert.equal(result.metrics.distanceKm.reason, 'insufficient_samples');
     assert.equal(result.metrics.distanceKm.range, null);
     assert.equal(result.metrics.distanceKm.median, null);
     assert.equal(result.metrics.distanceKm.sampleCount, records.filter(record => record !== C).length);
   }
 });
 
-test('three or four observations give the actual range, paired evidence and whole-trip pace', () => {
-  const result = daily([A, B, C, D, { ...C, id: 'H', effortLevel: 4 }]);
+test('a wide history yields the dominant distance group, tracing only its paired ascent records', () => {
+  const result = daily([A, { ...B, distance: 11 }, G, { ...D, distance: 39, ascent: 2700 }, C,
+    { ...C, id: 'H', effortLevel: 4 }]);
   assert.equal(result.status, 'preliminary');
-  assert.deepEqual(result.counts, { total: 5, usable: 5, reference: 3, comfortable: 2, moderate: 1, highEffort: 2, unrated: 0 });
+  assert.deepEqual(result.counts, { total: 6, usable: 6, reference: 4, comfortable: 3, moderate: 1, highEffort: 2, unrated: 0 });
   assert.deepEqual(result.highEffortRecords.map(record => record.ref.id), ['C', 'H']);
-  assert.deepEqual(result.metrics.distanceKm.range, { low: 8, high: 12 });
-  assert.deepEqual(result.metrics.ascentM.range, { low: 300, high: 650 });
-  assert.deepEqual(result.metrics.durationHours.range, { low: 3, high: 5 });
-  assert.deepEqual(result.metrics.paceMinPerKm.range, { low: 22.5, high: 25 });
-  assert.equal(result.metrics.paceMinPerKm.unit, 'min/km');
+  assert.deepEqual(result.metrics.distanceKm.observedRange, { low: 8, high: 39 });
+  assert.deepEqual(result.metrics.distanceKm.range, { low: 8, high: 11 });
+  assert.equal(result.metrics.distanceKm.sampleCount, 4);
+  assert.equal(result.metrics.distanceKm.usedCount, 3);
+  assert.deepEqual(result.metrics.distanceKm.recordRefs.map(ref => ref.id), ['A', 'G', 'B']);
+  assert.equal(result.metrics.ascentM.median, 400);
+  assert.deepEqual(result.metrics.ascentM.condition.distanceKm, { low: 8, high: 11 });
+  assert.deepEqual(result.metrics.ascentM.recordRefs.map(ref => ref.id), ['A', 'G', 'B']);
   assert.deepEqual(result.referenceRecords.map(record => [record.ref.id, record.ref.date, record.distanceKm, record.ascentM]),
-    [['A', A.date, 8, 300], ['B', B.date, 12, 650], ['D', D.date, 10, 500]]);
-  assert.equal(daily([A, B, D, E]).metrics.distanceKm.method, 'observed');
-  assert.equal(result.metrics.loadKg.status, 'insufficient');
-  assert.equal(result.metrics.loadKg.missingCount, 1);
+    [['A', A.date, 8, 300], ['B', B.date, 11, 650], ['G', G.date, 9, 400], ['D', D.date, 39, 2700]]);
 });
 
-test('five observations give a median, the middle half and the full observed limits separately', () => {
-  const { status, metrics } = daily([A, B, D, E, F]);
+test('five typical distances give their middle half and leave the full observed limits separate', () => {
+  const { status, metrics } = daily([A, { ...B, distance: 11 }, D, { ...E, distance: 8.5 }, G, { ...F, distance: 39 }]);
   assert.equal(status, 'preliminary');
-  assert.equal(metrics.distanceKm.method, 'interquartile');
-  assert.equal(metrics.distanceKm.median, 10);
-  assert.deepEqual(metrics.distanceKm.range, { low: 8, high: 12 });
-  assert.deepEqual(metrics.distanceKm.observedRange, { low: 6, high: 14 });
+  assert.equal(metrics.distanceKm.method, 'typical_group_interquartile');
+  assert.equal(metrics.distanceKm.median, 9);
+  assert.deepEqual(metrics.distanceKm.range, { low: 8.5, high: 10 });
+  assert.deepEqual(metrics.distanceKm.observedRange, { low: 8, high: 39 });
+  assert.deepEqual(metrics.ascentM.condition.distanceKm, { low: 8, high: 11 });
 });
 
-test('six recent and diverse records support daily estimates, with separate metric sufficiency', () => {
-  const result = daily([A, B, D, E, F, G]);
-  assert.equal(result.status, 'supported');
-  assert.equal(result.quality.pairedCount, 6);
-  assert.equal(result.quality.recentCount, 6);
-  assert.equal(result.metrics.distanceKm.status, 'supported');
-  assert.deepEqual(result.metrics.distanceKm.range, { low: 8.25, high: 11.5 });
-  assert.equal(result.metrics.loadKg.sampleCount, 5);
-  assert.equal(result.metrics.loadKg.status, 'preliminary');
+test('scattered distances and equally strong clusters with a gap withhold the distance and ascent recommendation', () => {
+  for (const distances of [[3, 6, 9, 12, 15], [6, 6, 6, 14, 14, 14]]) {
+    const records = distances.map((distance, i) => ({ ...A, id: i, distance }));
+    const { metrics } = daily(records);
+    assert.equal(metrics.distanceKm.status, 'insufficient');
+    assert.equal(metrics.distanceKm.reason, 'dispersed_distances');
+    assert.equal(metrics.distanceKm.range, null);
+    assert.equal(metrics.distanceKm.sampleCount, records.length);
+    assert.equal(metrics.ascentM.reason, 'no_distance_group');
+    assert.equal(metrics.ascentM.median, null);
+  }
 });
 
-test('poor coverage, few ratings, older dates, short spans or homogeneous terrain limit evidence', () => {
-  const diverse = [A, B, D, E, F, G];
-  const unrated = diverse.map(record => ({ ...record, effortLevel: null }));
-  const scenarios = [
-    [...diverse, null, null, null],
-    [...diverse, ...unrated],
-    diverse.map(record => ({ ...record, date: record.date.replace('2026-', '2025-') })),
-    diverse.map(record => ({ ...record, date: '2026-10-01' })),
-    diverse.map(record => ({ ...record, distance: 10 })),
-    diverse.map(record => ({ ...record, ascent: 0 }))
-  ];
-  for (const records of scenarios) assert.equal(daily(records).status, 'preliminary');
+test('sufficiency is independent of optional fields and depends on recency, time span and coverage', () => {
+  const records = [A, B, D, E, F, G].map((record, i) => ({ ...record, distance: 7 + i / 2, ascent: null, load: 0 }));
+  const { status, availableCount, metrics } = daily(records);
+  assert.equal(status, 'preliminary');
+  assert.equal(availableCount, 2);
+  assert.equal(metrics.distanceKm.status, 'supported');
+  assert.equal(metrics.ascentM.status, 'insufficient');
+  assert.equal(metrics.shortTripLoadKg.status, 'supported');
+  assert.equal(metrics.shortTripLoadKg.median, 0);
+  assert.equal(metrics.longTripLoadKg.status, 'insufficient');
+  assert.equal(daily(records.map(record => ({ ...record, date: '2026-10-01' }))).metrics.distanceKm.status, 'preliminary');
+  assert.equal(daily(records.map(record => ({ ...record, date: record.date.replace('2026-', '2025-') }))).metrics.distanceKm.status, 'preliminary');
+  const missingLoads = [7, 8, 9].map((distance, i) => ({ ...A, id: i, distance, load: null }));
+  const partial = daily([...records, ...missingLoads]).metrics.shortTripLoadKg;
+  assert.equal(partial.sampleCount, 6);
+  assert.equal(partial.missingCount, 3);
+  assert.equal(partial.status, 'preliminary');
 });
 
 test('only strenuous outings remain available as comparison and duration calibration', () => {
@@ -104,17 +114,17 @@ test('missing or invalid distance and time are excluded and remain traceable by 
 });
 
 test('zero ascent and load are retained while missing and invalid fields stay distinct', () => {
-  const flat = [A, B, D].map(record => ({ ...record, ascent: 0, load: 0 }));
-  assert.deepEqual(daily(flat).metrics.ascentM.range, { low: 0, high: 0 });
-  assert.deepEqual(daily(flat).metrics.loadKg.range, { low: 0, high: 0 });
+  const flat = [A, G, D].map(record => ({ ...record, ascent: 0, load: 0 }));
+  assert.equal(daily(flat).metrics.ascentM.median, 0);
+  assert.equal(daily(flat).metrics.shortTripLoadKg.median, 0);
   assert.equal(estimate(flat, { ...route, ascentM: 0 }).sampleCount, 3);
   const mixed = [flat[0], { ...flat[1], ascent: '' }, { ...flat[2], ascent: -1, load: '无效' }];
   const result = daily(mixed);
   assert.equal(result.metrics.ascentM.sampleCount, 1);
   assert.equal(result.metrics.ascentM.missingCount, 1);
   assert.equal(result.metrics.ascentM.invalidCount, 1);
-  assert.equal(result.metrics.ascentM.range, null);
-  assert.equal(result.metrics.loadKg.invalidCount, 1);
+  assert.equal(result.metrics.ascentM.median, null);
+  assert.equal(result.metrics.shortTripLoadKg.invalidCount, 1);
   assert.equal(result.metrics.distanceKm.sampleCount, 3);
   assert.equal(estimate(mixed).sampleCount, 1);
 });
@@ -130,13 +140,68 @@ test('legacy effort uses Stage A mapping and unknown labels do not become modera
   assert.equal(estimate(records).sampleCount, 4);
 });
 
-test('self assessment stays separate and flags substantial differences without altering metrics', () => {
-  const records = [A, B, D];
-  const result = daily(records, { comfortableDistanceKm: 24, comfortableDurationHours: 1, comfortableAscentM: 655 });
+test('self assessment stays separate and flags substantial differences against the applicable groups', () => {
+  const records = [A, { ...G, load: 2 }, { ...D, load: 3 }, { ...B, distance: 39, load: 100 }];
+  const result = daily(records, { comfortableDistanceKm: 24, comfortableDurationHours: 1, comfortableAscentM: 900, typicalLoadKg: 10 });
   assert.deepEqual(result.metrics, daily(records).metrics);
   assert.equal(result.selfAssessment.source, 'trailready_user_profile');
-  assert.deepEqual(result.selfAssessment.differences.map(({ key, direction }) => [key, direction]),
-    [['comfortableDistanceKm', 'above'], ['comfortableDurationHours', 'below']]);
+  assert.equal(result.selfAssessment.values.comfortableDurationHours, 1);
+  assert.deepEqual(result.selfAssessment.differences.map(({ metric, direction }) => [metric, direction]),
+    [['distanceKm', 'above'], ['ascentM', 'above'], ['shortTripLoadKg', 'above']]);
+});
+
+test('pace uses total time and the 30/60 m/km boundaries without admitting moderate or unknown climbs', () => {
+  const records = [
+    { ...A, distance: 5, ascent: 150, hours: 1.5 },
+    { ...B, distance: 8, ascent: 160, hours: 2.4 },
+    { ...D, distance: 10, ascent: 0, hours: 4 },
+    { ...E, distance: 10, ascent: 610, hours: 5 },
+    { ...F, distance: 12, ascent: 900, hours: 7 },
+    { ...G, distance: 15, ascent: 1000, hours: 10 },
+    { ...A, id: 'over-low', distance: 10, ascent: 301, hours: 0.5 },
+    { ...B, id: 'at-high', distance: 10, ascent: 600, hours: 0.5 },
+    { ...D, id: 'unknown', ascent: null, hours: 0.5 },
+    { ...E, id: 'invalid', ascent: -1, hours: 0.5 },
+    { ...C, distance: 10, ascent: 300, hours: 99 }
+  ];
+  const result = daily(records);
+  const { lowAscentPaceMinPerKm: low, highAscentPaceMinPerKm: high } = result.metrics;
+  assert.equal(low.median, 18);
+  assert.equal(high.median, 35);
+  for (const metric of [low, high]) {
+    assert.equal(metric.unit, 'min/km');
+    assert.equal(metric.sampleCount, 3);
+    assert.equal(metric.missingCount, 1);
+    assert.equal(metric.invalidCount, 1);
+  }
+  assert.deepEqual(low.condition, { ascentMPerKm: { maxInclusive: 30 } });
+  assert.deepEqual(high.condition, { ascentMPerKm: { minExclusive: 60 } });
+  assert.deepEqual(low.recordRefs.map(ref => ref.id), ['A', 'B', 'D']);
+  assert.deepEqual(high.recordRefs.map(ref => ref.id), ['E', 'F', 'G']);
+  assert.deepEqual(result.referenceRecords.slice(6).map(record => record.ascentBand),
+    ['moderate', 'moderate', 'unknown', 'unknown']);
+  assert.equal(daily(records.filter(record => record.id !== 'E')).metrics.highAscentPaceMinPerKm.median, null);
+});
+
+test('short and long load groups use their own medians and allow lighter long-trip history', () => {
+  const records = [
+    { ...A, distance: 8, load: 0 }, { ...B, distance: 9, load: 8 }, { ...D, distance: 10, load: 4 },
+    { ...E, distance: 10.01, load: 1 }, { ...F, distance: 12, load: 2 }, { ...G, distance: 14, load: 3 },
+    { ...C, distance: 10, load: 99 }
+  ];
+  const { shortTripLoadKg: short, longTripLoadKg: long } = daily(records).metrics;
+  assert.equal(short.median, 4);
+  assert.equal(long.median, 2);
+  assert.deepEqual(short.condition, { distanceKm: { maxInclusive: 10 } });
+  assert.deepEqual(long.condition, { distanceKm: { minExclusive: 10 } });
+  assert.deepEqual(short.recordRefs.map(ref => ref.id), ['A', 'B', 'D']);
+  assert.deepEqual(long.recordRefs.map(ref => ref.id), ['E', 'F', 'G']);
+  const conflict = daily(records, { typicalLoadKg: 100 });
+  assert.deepEqual(conflict.selfAssessment.differences.map(item => item.metric), ['shortTripLoadKg', 'longTripLoadKg']);
+  const sparse = daily(records.map(record => record.distance <= 10 ? { ...record, load: null } : record), { typicalLoadKg: 8 });
+  assert.equal(sparse.metrics.shortTripLoadKg.sampleCount, 0);
+  assert.equal(sparse.metrics.shortTripLoadKg.median, null);
+  assert.equal(sparse.metrics.longTripLoadKg.median, 2);
 });
 
 test('Naismith target baseline and the personal median factor reproduce the sample calculation', () => {

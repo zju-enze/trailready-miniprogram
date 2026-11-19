@@ -4,6 +4,11 @@
 .hike-count .unit { font-size: 28rpx; }
 .trail-screen .add-record { padding: 16rpx 24rpx; border-radius: 999rpx; font-size: 27rpx; }
 .history-section { padding: 12rpx 4rpx 0; }
+.ability-card { display: flex; flex-direction: column; gap: 12rpx; }
+.ability-card .ability-heading { flex-wrap: wrap; row-gap: 4rpx; }
+.ability-card .history-stat-grid { margin-top: 0; }
+.ability-card .ability-detail { font-size: 24rpx; }
+.trail-screen .ability-toggle { align-self: flex-start; gap: 12rpx; }
 .trail-screen .profile-card { padding: 0; }
 .trail-screen .expansion-toggle {
   display: flex; width: 100%; align-items: center; gap: 16rpx; min-height: 48px;

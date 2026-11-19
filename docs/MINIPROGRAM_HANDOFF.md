@@ -76,7 +76,9 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 历史统计读取全部 `trailready_trips.history`。路线名称和完成日期有效的记录计入次数，各指标单独验证。旧记录的 0 km 和 0 小时不再参与极值，0 m 和 0 kg 仍有效。历史最长记录用时表示整次徒步用时，历史最佳表现仅供参考。统计服务继续提供每项有效条数和记录来源。
 
-后续评估可以使用 `utils/hikeHistory.js` 的 `readHistory()` 读取原始记录，用 `inspectRecord(record)` 得到规范化字段、`validRecord`、`eligible`、字段错误和缺失字段，再通过 `utils/userProfile.js` 的 `read()` 获取自评。`eligible` 仅表示通过数据校验。
+经历页的日常参考使用体感为 1–3 级、日期有效、里程和用时完整的记录。每项指标有 3–4 个有效值时展示观察范围，达到 5 个时展示中间一半的范围与中位数。样本不足时显示还需哪些记录。历史最高值单独列出，可与常见表现对照。
+
+[`abilityAssessment.js`](../miniprogram/utils/abilityAssessment.js) 另提供 `estimateTripDuration(route, history, asOfDate)` 供代码调用。输入目标里程、爬升及至少三次可校准的历史记录，依据里程、爬升和个人历史耗时估算。现有行程页仍展示原来的规划用时；高海拔、极端天气或技术地形不在该估算的适用范围内。
 
 ## 代码与测试
 

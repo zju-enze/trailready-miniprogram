@@ -8,6 +8,29 @@
       <button class="trail-primary add-record" bindtap="edit">＋ 记录徒步</button>
     </view>
 
+    <view wx:if="{{ability}}" class="trail-card ability-card">
+      <view class="trail-heading ability-heading">
+        <text class="section-title">日常徒步参考</text><text class="trail-meta">{{ability.label}}</text>
+      </view>
+      <text wx:if="{{ability.message}}" class="trail-meta">{{ability.message}}</text>
+      <view wx:else class="history-stat-grid">
+        <view wx:for="{{ability.rows}}" wx:key="key" class="history-stat">
+          <text class="trail-meta">{{item.label}}</text><text>{{item.value}}</text>
+          <text wx:if="{{abilityExpanded}}" class="trail-meta ability-detail">{{item.detail}}</text>
+        </view>
+      </view>
+      <block wx:if="{{!ability.message || ability.counts.highEffort || ability.comparisons.length}}">
+        <button class="trail-link ability-toggle" bindtap="toggleAbility" aria-expanded="{{abilityExpanded}}">
+          <text>计算依据</text><view class="expansion-arrow {{abilityExpanded ? 'expanded' : ''}}" aria-hidden="true"/>
+        </button>
+        <block wx:if="{{abilityExpanded}}">
+          <text wx:if="{{ability.counts.highEffort}}" class="trail-meta">另有 {{ability.counts.highEffort}} 条体感 4–5 级的高负担经历，仅供对照。</text>
+          <text wx:for="{{ability.comparisons}}" wx:key="key" class="trail-meta">{{item.text}}</text>
+          <text wx:for="{{ability.limitations}}" wx:key="*this" class="trail-meta ability-detail">{{item}}</text>
+        </block>
+      </block>
+    </view>
+
     <view class="trail-card profile-card">
       <button class="profile-toggle expansion-toggle" bindtap="toggleProfile" aria-expanded="{{profileExpanded}}">
         <text class="section-title">个人能力画像</text>

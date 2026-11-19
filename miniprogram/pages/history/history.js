@@ -3,6 +3,8 @@ const profile = require('../../utils/userProfile');
 const { getTodayString } = require('../../utils/dateUtils');
 const { EFFORT_LABELS, METRICS, inspectRecord, readHistory } = require('../../utils/hikeHistory');
 
+const HISTORY_PREVIEW_LIMIT = 3;
+
 const STAT_FIELDS = [
   { key: 'distance', maximum: 'maxDistanceKm', label: '最长距离', unit: 'km' },
   { key: 'ascent', maximum: 'maxAscentM', label: '最大累计爬升', unit: 'm' },
@@ -25,7 +27,8 @@ function formText(value) {
 
 Page({
   data: {
-    records: [], draft: null, error: '', fields: {}, today: '', efforts: EFFORT_LABELS, metrics: METRICS,
+    records: [], recentRecords: [], profileExpanded: false, historyExpanded: false,
+    draft: null, error: '', fields: {}, today: '', efforts: EFFORT_LABELS, metrics: METRICS,
     effortIndex: 0, legacyEffort: '', profileError: '', historyError: '', selfRows: [], stats: null, statRows: [],
     recentLoads: [], showLoads: false, statsNotice: ''
   },
@@ -41,11 +44,12 @@ Page({
     this.historyRecords = history.ok ? history.records : [];
     const records = this.historyRecords.map((raw, index) => {
       const quality = inspectRecord(raw, today);
-      return { ...quality.record, index, needsReview: !quality.eligible };
-    }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      return { ...quality.record, index, needsReview: !quality.eligible,
+        sortDate: quality.fields.date ? '' : (quality.record?.date || '') };
+    }).sort((a, b) => b.sortDate.localeCompare(a.sortDate) || a.index - b.index);
     const stats = performance.ok ? performance.stats : null;
     this.setData({
-      today, records, stats,
+      today, records, recentRecords: records.slice(0, HISTORY_PREVIEW_LIMIT), stats,
       historyError: history.ok ? '' : history.error.message,
       profileError: assessment.ok ? '' : assessment.error.message,
       selfRows: assessment.ok ? selfRows(assessment.profile.selfAssessment) : [],
@@ -56,6 +60,8 @@ Page({
       statsNotice: stats && stats.ignoredRecordCount ? '部分记录的路线名称或日期待完善，暂不计入统计。' : ''
     });
   },
+  toggleProfile() { this.setData({ profileExpanded: !this.data.profileExpanded }); },
+  toggleHistory() { this.setData({ historyExpanded: !this.data.historyExpanded }); },
   toggleLoads() { this.setData({ showLoads: !this.data.showLoads }); },
   edit(e) {
     if (this.data.historyError) return;

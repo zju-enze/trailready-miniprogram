@@ -1,5 +1,19 @@
 .trail-screen .record-list { padding-top: 0; padding-bottom: 0; }
 .ability-card { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8rpx 16rpx; }
+.trail-screen .profile-card { padding: 0; }
+.trail-screen .expansion-toggle {
+  display: flex; width: 100%; align-items: center; gap: 16rpx; min-height: 48px;
+}
+.trail-screen .profile-toggle { justify-content: space-between; padding: 20rpx 28rpx; }
+.profile-detail { padding: 24rpx 28rpx; border-top: 1rpx solid #e5e9e6; }
+.trail-screen .history-toggle {
+  justify-content: center; border-top: 1rpx solid #e5e9e6; color: #086b52; font-size: 27rpx;
+}
+.expansion-arrow {
+  flex: none; width: 12rpx; height: 12rpx; margin-right: 4rpx;
+  border: solid currentColor; border-width: 0 2rpx 2rpx 0; transform: rotate(45deg);
+}
+.expansion-arrow.expanded { transform: rotate(225deg); }
 .history-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx 20rpx; margin-top: 16rpx; }
 .history-stat { display: flex; flex-direction: column; gap: 4rpx; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .assessment-grid { margin-top: 6rpx; }

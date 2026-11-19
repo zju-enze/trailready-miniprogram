@@ -57,8 +57,78 @@ test('first visit renders missing self assessment and empty history independentl
   assert.equal(page.data.selfRows.length, 6);
   assert.ok(page.data.selfRows.every(row => row.value === '尚未填写'));
   assert.equal(page.data.stats.totalHikes, 0);
+  assert.deepEqual(page.data.recentRecords, []);
   assert.ok(page.data.statRows.every(row => row.value === '暂无记录'));
   assert.equal(disk.size, 0);
+});
+
+test('history previews the latest three records with ties in original storage order', () => {
+  const history = [
+    { id: 'older', date: '2025-01-01' },
+    { id: 'same-day-first', date: '2025-01-03' },
+    { id: 'bad-date', date: '2025-99-01' },
+    { id: 'latest', date: '2025-01-04' },
+    { id: 'same-day-second', date: '2025-01-03' }
+  ].map(record => ({ ...record, name: record.id }));
+  disk.set('trailready_trips', { trips: [], history });
+  const page = open(historyDefinition);
+  assert.equal(page.data.profileExpanded, false);
+  assert.equal(page.data.historyExpanded, false);
+  assert.deepEqual(page.data.recentRecords.map(record => record.id), ['latest', 'same-day-first', 'same-day-second']);
+  assert.deepEqual(page.data.records.map(record => record.id), ['latest', 'same-day-first', 'same-day-second', 'older', 'bad-date']);
+  assert.equal(page.data.stats.totalHikes, 4);
+  assert.deepEqual(disk.get('trailready_trips').history, history);
+});
+
+test('the two panels toggle independently and retain their state across data refreshes', () => {
+  const history = [1, 2].map(number => ({ id: String(number), name: '测试路线', date: '2025-01-0' + number }));
+  disk.set('trailready_trips', { trips: [], history });
+  const page = open(historyDefinition);
+  assert.deepEqual(page.data.recentRecords.map(record => record.id), ['2', '1']);
+  page.toggleProfile();
+  assert.equal(page.data.historyExpanded, false);
+  page.toggleHistory();
+  page.onShow();
+  assert.equal(page.data.profileExpanded, true);
+  assert.equal(page.data.historyExpanded, true);
+  page.toggleProfile();
+  assert.equal(page.data.historyExpanded, true);
+  page.toggleHistory();
+  assert.equal(page.data.profileExpanded, false);
+  assert.equal(page.data.historyExpanded, false);
+});
+
+test('creating and editing update the recent preview and deleting backfills it', () => {
+  const history = [4, 1, 3, 2].map(number => ({ id: String(number), name: '路线 ' + number,
+    date: '2025-01-0' + number, distance: number, hours: 1, effortLevel: 3 }));
+  disk.set('trailready_trips', { trips: [], history });
+  const page = open(historyDefinition);
+  const recent = () => page.data.recentRecords.map(record => record.name);
+
+  page.toggleProfile();
+  page.edit({ currentTarget: { dataset: {} } });
+  page.changeEffort({ detail: { value: '3' } });
+  page.saveRecord({ detail: { value: { name: '新路线', distance: '10', hours: '2', note: '新备注' } } });
+  assert.deepEqual(recent(), ['新路线', '路线 4', '路线 3']);
+  assert.equal(page.data.stats.maxDistanceKm, 10);
+  assert.equal(page.data.profileExpanded, true);
+  assert.equal(page.data.historyExpanded, false);
+
+  page.toggleHistory();
+  const newest = page.data.recentRecords[0];
+  page.edit({ currentTarget: { dataset: { index: newest.index } } });
+  page.changeDate({ detail: { value: '2024-12-31' } });
+  page.saveRecord({ detail: { value: { ...page.data.draft, distance: '2' } } });
+  assert.deepEqual(recent(), ['路线 4', '路线 3', '路线 2']);
+  assert.equal(page.data.stats.maxDistanceKm, 4);
+  assert.equal(page.data.historyExpanded, true);
+
+  page.edit({ currentTarget: { dataset: { index: page.data.recentRecords[0].index } } });
+  page.remove();
+  assert.deepEqual(recent(), ['路线 3', '路线 2', '路线 1']);
+  assert.equal(page.data.stats.maxDistanceKm, 3);
+  assert.equal(page.data.historyExpanded, true);
+  assert.deepEqual(disk.get('trailready_trips').history.map(record => record.name), ['新路线', '路线 1', '路线 3', '路线 2']);
 });
 
 test('editing options and numbers saves offline and restores on another visit', () => {

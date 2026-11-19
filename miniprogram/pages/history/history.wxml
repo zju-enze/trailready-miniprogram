@@ -1,8 +1,26 @@
 <view class="trail-screen tab-screen">
   <block wx:if="{{!draft}}">
     <view class="trail-card ability-card">
-      <text class="section-title">我的日常徒步能力</text>
-      <text class="trail-meta">能力评估待完善</text>
+      <view class="trail-heading ability-heading">
+        <text class="section-title">我的日常徒步能力</text>
+        <text wx:if="{{ability}}" class="trail-meta">{{ability.label}}</text>
+      </view>
+      <text wx:if="{{historyError}}" class="record-error" role="alert">{{historyError}}</text>
+      <block wx:elif="{{ability}}">
+        <text wx:if="{{ability.message}}" class="trail-meta">{{ability.message}}</text>
+        <view wx:else class="history-stat-grid">
+          <view wx:for="{{ability.rows}}" wx:key="key" class="history-stat">
+            <text class="trail-meta">{{item.label}}</text>
+            <text>{{item.value}}</text>
+            <text class="trail-meta ability-detail">{{item.detail}}</text>
+          </view>
+        </view>
+        <text wx:if="{{ability.counts.highEffort}}" class="trail-meta ability-note">另有 {{ability.counts.highEffort}} 条体感 4–5 级的高负担经历，仅供对照。</text>
+        <text wx:for="{{ability.comparisons}}" wx:key="key" class="trail-meta ability-note">{{item.text}}</text>
+        <block wx:if="{{!ability.message}}">
+          <text wx:for="{{ability.limitations}}" wx:key="*this" class="trail-meta ability-detail">{{item}}</text>
+        </block>
+      </block>
     </view>
     <view class="trail-card profile-card">
       <button class="profile-toggle expansion-toggle" bindtap="toggleProfile" aria-expanded="{{profileExpanded}}">

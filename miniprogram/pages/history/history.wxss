@@ -1,5 +1,9 @@
 .trail-screen .record-list { padding-top: 0; padding-bottom: 0; }
-.ability-card { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8rpx 16rpx; }
+.ability-card { display: flex; flex-direction: column; gap: 12rpx; }
+.ability-card .ability-heading { flex-wrap: wrap; row-gap: 4rpx; }
+.ability-card .history-stat-grid { margin-top: 0; }
+.ability-card .ability-detail { font-size: 24rpx; }
+.ability-note { color: #8b552b; }
 .trail-screen .profile-card { padding: 0; }
 .trail-screen .expansion-toggle {
   display: flex; width: 100%; align-items: center; gap: 16rpx; min-height: 48px;

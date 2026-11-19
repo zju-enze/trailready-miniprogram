@@ -234,6 +234,39 @@ test('history save, edit and delete immediately refresh statistics on the main t
   assert.equal(history.data.stats.maxDistanceKm, null);
 });
 
+test('the visible daily reference recomputes after history and self assessment changes', () => {
+  disk.set('trailready_trips', { trips: [], history: [
+    { id: 'old-a', name: 'A', date: '2025-01-01', distance: 8, hours: 3, ascent: 300, effortLevel: 2 },
+    { id: 'old-b', name: 'B', date: '2025-01-02', distance: 12, hours: 5, ascent: 650, effortLevel: 3 }
+  ] });
+  const page = open(historyDefinition);
+  const distance = () => page.data.ability.rows.find(row => row.key === 'distanceKm').value;
+  assert.equal(page.data.ability.status, 'insufficient');
+  assert.equal(distance(), '暂无可靠参考');
+  page.edit({ currentTarget: { dataset: {} } });
+  page.changeEffort({ detail: { value: '2' } });
+  const values = { name: 'C', distance: '15', ascent: '500', hours: '6' };
+  page.saveRecord({ detail: { value: values } });
+  assert.equal(page.data.ability.status, 'preliminary');
+  assert.equal(distance(), '8–15 km');
+  assert.equal(page.data.profileExpanded, false);
+
+  const { index } = page.data.recentRecords[0];
+  page.edit({ currentTarget: { dataset: { index } } });
+  page.saveRecord({ detail: { value: { ...values, distance: '10' } } });
+  assert.equal(distance(), '8–12 km');
+  service.save({ comfortableDistanceKm: 24 });
+  page.onShow();
+  assert.match(page.data.ability.comparisons[0].text, /自评.*高于/);
+  assert.equal(distance(), '8–12 km');
+
+  page.edit({ currentTarget: { dataset: { index } } });
+  page.remove();
+  assert.equal(page.data.ability.status, 'insufficient');
+  assert.equal(distance(), '暂无可靠参考');
+  assert.deepEqual(page.data.ability.comparisons, []);
+});
+
 test('onShow refreshes history without losing an in-progress self assessment draft', () => {
   const page = open();
   page.edit();

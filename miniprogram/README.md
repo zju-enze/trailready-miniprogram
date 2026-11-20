@@ -6,7 +6,9 @@
 
 安装 Node.js 22，在仓库根目录运行 `npm ci --prefix miniprogram`。用微信开发者工具导入本目录，选择「工具 → 构建 npm」，然后编译。
 
-当前测试号在开发者工具中通过本机服务调用腾讯地图、和风天气和 DeepSeek。首次配置、同一 Wi-Fi 下的真机调试方法和测试命令见[开发交接](../docs/MINIPROGRAM_HANDOFF.md)。仅在本机模拟器使用时，从仓库根目录启动服务：
+标准工程在开发者工具与手机上均通过微信云函数 `trailAssistant` 访问腾讯地图、和风天气和 DeepSeek。需先在本 AppID 关联的环境部署函数并配置供应商环境变量。默认调用微信的默认环境，指定环境的方法见[开发交接](../docs/MINIPROGRAM_HANDOFF.md)。
+
+使用本机服务调试时，从仓库根目录运行以下命令，再将终端输出的 `.local/simulator-preview-*` 工程导入开发者工具：
 
 ```powershell
 node --env-file-if-exists=.local/demo.env --env-file-if-exists=.local/trailready-services.env scripts/serve-assistant.cjs

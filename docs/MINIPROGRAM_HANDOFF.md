@@ -1,6 +1,6 @@
 # TrailReady 微信小程序开发交接
 
-更新于 2026 年 11 月 19 日。TrailReady 用来准备一次具体的徒步。在「准备」输入目的地和出发日期，可以生成 AI 草稿，也可以手工安排行程。个人装备和实际徒步经历在不同的行程之间复用。
+更新于 2026 年 11 月 20 日。TrailReady 用来准备一次具体的徒步。在「准备」输入目的地和出发日期，可以生成 AI 草稿，也可以手工安排行程。个人装备和实际徒步经历在不同的行程之间复用。
 
 ## 用户怎样使用
 
@@ -14,7 +14,7 @@
 
 ## 开发者工具与同网真机联调
 
-本机使用 Node.js 22。首次在仓库根目录运行 `npm ci --prefix miniprogram`，再将 `miniprogram/` 导入微信开发者工具。在「工具」中构建 npm，然后编译。此处使用的微信测试号没有云开发权限。本机联调运行与微信云函数相同的服务代码。
+本机使用 Node.js 22。首次在仓库根目录运行 `npm ci --prefix miniprogram`，再将 `miniprogram/` 导入微信开发者工具，在「工具」中构建 npm 并编译。标准工程在模拟器和手机上都调用微信云函数。需要本机调试服务时，运行下面的脚本生成独立工程。副本默认沿用源工程的 AppID；要用自己的测试号，在导入副本时选择对应的 AppID。
 
 仅在开发者工具模拟器使用时，从仓库根目录运行以下命令，并在联调期间保留终端：
 
@@ -22,7 +22,7 @@
 node --env-file-if-exists=.local/demo.env --env-file-if-exists=.local/trailready-services.env scripts/serve-assistant.cjs
 ```
 
-服务监听本机 `127.0.0.1:8791`。要让手机访问服务，把手机和电脑连到同一个 Wi-Fi，再运行下列命令，把最后一项替换成电脑在该 Wi-Fi 下的实际 IPv4 地址：
+导入终端输出的 `.local/simulator-preview-*` 工程，开发者工具模拟器会请求本机 `127.0.0.1:8791`。要让手机访问服务，把手机和电脑连到同一个 Wi-Fi，再运行下列命令，把最后一项替换成电脑在该 Wi-Fi 下的实际 IPv4 地址：
 
 ```powershell
 node --env-file-if-exists=.local/demo.env --env-file-if-exists=.local/trailready-services.env scripts/serve-assistant.cjs <电脑Wi-Fi的IPv4>
@@ -42,7 +42,7 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 ## 正式微信云环境
 
-在[小程序启动文件](../miniprogram/app.js)将 `cloudEnvironment` 填为此 AppID 已关联的环境 ID。配置完成后，标准工程的开发者工具和手机都会调用该环境的云函数。环境 ID 可放在前端；供应商密钥只填在云函数环境变量中。
+先在开发者工具为正式 AppID 开通或关联云开发环境。标准工程的开发者工具和手机默认调用微信分配的默认云环境；如需指定某个已关联环境，可在[小程序启动文件](../miniprogram/app.js)填写 `cloudEnvironment`。环境 ID 可放在前端；供应商密钥只填在云函数环境变量中。
 
 正式体验码应从 `miniprogram/` 下的正式 AppID 工程生成。它通过微信云函数访问后端，手机可以使用移动数据，电脑可以关机。`.local/phone-preview-*` 生成的是局域网联调包，已经分发的这类二维码仍会连接当时的电脑。
 
@@ -76,7 +76,7 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 历史统计读取全部 `trailready_trips.history`。路线名称和完成日期有效的记录计入次数，各指标单独验证。旧记录的 0 km 和 0 小时不再参与极值，0 m 和 0 kg 仍有效。历史最长记录用时表示整次徒步用时，历史最佳表现仅供参考。统计服务继续提供每项有效条数和记录来源。
 
-经历页的日常参考使用体感为 1–3 级、日期有效、里程和用时完整的记录。每项指标有 3–4 个有效值时展示观察范围，达到 5 个时展示中间一半的范围与中位数。样本不足时显示还需哪些记录。历史最高值单独列出，可与常见表现对照。
+经历页的日常参考先依据自评距离、经验和体能给出起步距离；没有这些资料时展示通用起步范围。已有记录会按日期、体感和路线重复情况校准推荐距离，体感为 4–5 级的记录可用于谨慎下调。爬升参考对应相近距离的经历，配速按爬升强度分组，负重按长短途分组。展开「计算依据」可查看数据来源、参与计算的记录示例和适用限制。历史最高值单独列出。
 
 [`abilityAssessment.js`](../miniprogram/utils/abilityAssessment.js) 另提供 `estimateTripDuration(route, history, asOfDate)` 供代码调用。输入目标里程、爬升及至少三次可校准的历史记录，依据里程、爬升和个人历史耗时估算。现有行程页仍展示原来的规划用时；高海拔、极端天气或技术地形不在该估算的适用范围内。
 

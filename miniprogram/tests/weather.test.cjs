@@ -6,7 +6,7 @@ const { generateMultiDayPackingList } = require('../utils/recommendation');
 const api = require('../utils/weatherApi');
 const { callAssistant, initAssistant, assistantAvailable } = require('../utils/trailAssistant');
 
-test('开发者工具开发版使用本机，体验版、正式版和真机开发版只使用微信云', async () => {
+test('标准工程的模拟器和手机均调用微信云，未指定环境时使用微信默认环境', async () => {
   let envVersion = 'develop';
   let platform = 'devtools';
   let local = 0;
@@ -15,14 +15,8 @@ test('开发者工具开发版使用本机，体验版、正式版和真机开�
   global.wx = {
     getAccountInfoSync: () => ({ miniProgram: { envVersion } }),
     getDeviceInfo: () => ({ platform }),
-    request(options) {
-      local++;
-      assert.match(options.url, /^http:\/\/127\.0\.0\.1:/);
-      assert.equal(options.method, 'POST');
-      assert.deepEqual(options.data, payload);
-      options.success({ statusCode: 200, data: { places: [] } });
-    },
-    cloud: { init() {}, async callFunction(options) {
+    request() { local++; throw Error('不应请求本地服务'); },
+    cloud: { init(options) { assert.deepEqual(options, { traceUser: false }); }, async callFunction(options) {
       cloud++;
       assert.deepEqual(options, { name: 'trailAssistant', data: payload });
       return { result: { places: [] } };
@@ -32,20 +26,20 @@ test('开发者工具开发版使用本机，体验版、正式版和真机开�
     initAssistant();
     await callAssistant(payload);
   }
-  assert.equal(local, 1);
-  assert.equal(cloud, 3);
+  assert.equal(local, 0);
+  assert.equal(cloud, 4);
   envVersion = 'develop';
   platform = 'devtools';
   wx.cloud.init = options => assert.equal(options.env, 'trail-test-env');
   initAssistant('trail-test-env');
   await callAssistant(payload);
-  assert.equal(local, 1);
-  assert.equal(cloud, 4);
+  assert.equal(local, 0);
+  assert.equal(cloud, 5);
   wx.cloud.init = () => { throw new Error('未开通'); };
   initAssistant('trail-test-env');
   assert.equal(assistantAvailable(), false);
   await assert.rejects(callAssistant(payload), /微信云服务/);
-  assert.equal(local, 1);
+  assert.equal(local, 0);
 });
 
 test('地点天气使用约定的云函数参数，缺报和服务失败时可离线准备', async () => {

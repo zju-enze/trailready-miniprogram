@@ -1,8 +1,2 @@
-module.exports = function previewConnection() {
-  const account = wx.getAccountInfoSync?.();
-  const device = wx.getDeviceInfo?.() || wx.getSystemInfoSync?.();
-  if (account?.miniProgram?.envVersion === 'develop' && device?.platform === 'devtools') {
-    return { url: 'http://127.0.0.1:8791/trail-assistant' };
-  }
-  return null;
-};
+// 只有脚本生成的私有联调工程才会替换这个模块。
+module.exports = () => null;

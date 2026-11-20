@@ -5,9 +5,6 @@ const { networkInterfaces } = require('node:os');
 const { readFileSync, writeFileSync, cpSync, mkdirSync, mkdtempSync } = require('node:fs');
 const path = require('node:path');
 
-if (!process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY_FILE) {
-  process.env.DEEPSEEK_API_KEY = readFileSync(process.env.DEEPSEEK_API_KEY_FILE, 'utf8').trim();
-}
 const { main } = require('../miniprogram/cloudfunctions/trailAssistant');
 
 async function handle(request, response, pairingToken) {
@@ -49,14 +46,19 @@ function listen(address, pairingToken) {
     .listen(8791, address, () => console.log('行前助手已监听 ' + address + ':8791'));
 }
 
-const address = process.argv[2];
-if (address) {
-  const local = Object.values(networkInterfaces()).flat().some(ip => ip && ip.family === 'IPv4' && !ip.internal && ip.address === address);
-  if (!local) throw new Error('请传入电脑当前连接手机 Wi-Fi 的 IPv4 地址。');
+function previewModule(address, token) {
+  const connection = { url: 'http://' + (address || '127.0.0.1') + ':8791/trail-assistant' };
+  if (address) connection.header = { 'Content-Type': 'application/json', 'X-Trail-Preview': token };
+  const simulator = address ? '' : ' && (wx.getDeviceInfo?.() || wx.getSystemInfoSync()).platform === "devtools"';
+  return 'module.exports = () => wx.getAccountInfoSync().miniProgram.envVersion === "develop"'
+    + simulator + ' ? ' + JSON.stringify(connection) + ' : null;\n';
+}
+
+function preparePreview(address, token) {
   const source = path.resolve(__dirname, '../miniprogram');
   const output = path.resolve(__dirname, '../.local');
   mkdirSync(output, { recursive: true });
-  const project = mkdtempSync(path.join(output, 'phone-preview-'));
+  const project = mkdtempSync(path.join(output, address ? 'phone-preview-' : 'simulator-preview-'));
   for (const file of ['app.js', 'app.json', 'app.wxss', 'package.json', 'pages', 'custom-tab-bar', 'assets', 'utils', 'miniprogram_npm']) {
     cpSync(path.join(source, file), path.join(project, file), {
       recursive: true, filter: p => path.basename(p) !== 'config.js' || path.dirname(p) !== path.join(source, 'utils')
@@ -64,14 +66,26 @@ if (address) {
   }
   const config = JSON.parse(readFileSync(path.join(source, 'project.config.json'), 'utf8'));
   delete config.cloudfunctionRoot;
-  config.projectname = 'TrailReady-真机联调';
+  config.projectname = address ? 'TrailReady-真机联调' : 'TrailReady-本机联调';
   writeFileSync(path.join(project, 'project.config.json'), JSON.stringify(config, null, 2));
   writeFileSync(path.join(project, 'project.private.config.json'), JSON.stringify({ projectname: config.projectname, setting: { urlCheck: false } }));
-  const token = randomBytes(24).toString('hex');
-  const connection = { url: 'http://' + address + ':8791/trail-assistant', header: { 'Content-Type': 'application/json', 'X-Trail-Preview': token } };
-  writeFileSync(path.join(project, 'utils/previewConnection.js'),
-    'module.exports = () => wx.getAccountInfoSync().miniProgram.envVersion === "develop" ? ' + JSON.stringify(connection) + ' : null;\n');
-  console.log('真机调试工程 ' + project);
-  listen(address, token);
+  writeFileSync(path.join(project, 'utils/previewConnection.js'), previewModule(address, token));
+  return project;
 }
-listen('127.0.0.1');
+
+if (require.main === module) {
+  const address = process.argv[2];
+  if (address && !Object.values(networkInterfaces()).flat().some(ip => ip && ip.family === 'IPv4' && !ip.internal && ip.address === address)) {
+    throw new Error('请传入电脑当前连接手机 Wi-Fi 的 IPv4 地址。');
+  }
+  if (!process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY_FILE) {
+    process.env.DEEPSEEK_API_KEY = readFileSync(process.env.DEEPSEEK_API_KEY_FILE, 'utf8').trim();
+  }
+  const token = address ? randomBytes(24).toString('hex') : null;
+  const project = preparePreview(address, token);
+  console.log((address ? '真机调试工程 ' : '本机调试工程 ') + project);
+  if (address) listen(address, token);
+  listen('127.0.0.1');
+}
+
+module.exports = { previewModule };

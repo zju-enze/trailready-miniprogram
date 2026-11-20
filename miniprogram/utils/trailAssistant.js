@@ -4,7 +4,7 @@ let connection;
 
 function initAssistant(env) {
   cloudReady = false;
-  connection = env ? null : previewConnection();
+  connection = previewConnection();
   if (connection || !wx.cloud) return;
   try {
     wx.cloud.init(env ? { env, traceUser: false } : { traceUser: false });

@@ -1,0 +1,12 @@
+[Unit]
+Description=TrailReady private AI preview
+
+[Service]
+WorkingDirectory=%h/.local/share/trailready-ai-preview
+EnvironmentFile=%h/.config/trailready-ai-preview/service.env
+ExecStart=%h/.local/share/trailready-ai-preview/node scripts/serve-assistant.cjs --server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

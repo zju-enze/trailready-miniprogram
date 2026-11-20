@@ -1,0 +1,11 @@
+[Unit]
+Description=TrailReady private preview HTTPS ingress
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/share/trailready-tunnel/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8791
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

@@ -2,8 +2,9 @@
 const { createServer } = require('node:http');
 const { randomBytes } = require('node:crypto');
 const { networkInterfaces } = require('node:os');
-const { readFileSync, writeFileSync, cpSync, mkdirSync, mkdtempSync } = require('node:fs');
+const { readFileSync } = require('node:fs');
 const path = require('node:path');
+const { writePreviewProject } = require('./preview-project.cjs');
 
 const { main } = require('../miniprogram/cloudfunctions/trailAssistant');
 
@@ -46,46 +47,28 @@ function listen(address, pairingToken) {
     .listen(8791, address, () => console.log('行前助手已监听 ' + address + ':8791'));
 }
 
-function previewModule(address, token) {
-  const connection = { url: 'http://' + (address || '127.0.0.1') + ':8791/trail-assistant' };
-  if (address) connection.header = { 'Content-Type': 'application/json', 'X-Trail-Preview': token };
-  const simulator = address ? '' : ' && (wx.getDeviceInfo?.() || wx.getSystemInfoSync()).platform === "devtools"';
-  return 'module.exports = () => wx.getAccountInfoSync().miniProgram.envVersion === "develop"'
-    + simulator + ' ? ' + JSON.stringify(connection) + ' : null;\n';
-}
-
-function preparePreview(address, token) {
-  const source = path.resolve(__dirname, '../miniprogram');
-  const output = path.resolve(__dirname, '../.local');
-  mkdirSync(output, { recursive: true });
-  const project = mkdtempSync(path.join(output, address ? 'phone-preview-' : 'simulator-preview-'));
-  for (const file of ['app.js', 'app.json', 'app.wxss', 'package.json', 'pages', 'custom-tab-bar', 'assets', 'utils', 'miniprogram_npm']) {
-    cpSync(path.join(source, file), path.join(project, file), {
-      recursive: true, filter: p => path.basename(p) !== 'config.js' || path.dirname(p) !== path.join(source, 'utils')
-    });
-  }
-  const config = JSON.parse(readFileSync(path.join(source, 'project.config.json'), 'utf8'));
-  delete config.cloudfunctionRoot;
-  config.projectname = address ? 'TrailReady-真机联调' : 'TrailReady-本机联调';
-  writeFileSync(path.join(project, 'project.config.json'), JSON.stringify(config, null, 2));
-  writeFileSync(path.join(project, 'project.private.config.json'), JSON.stringify({ projectname: config.projectname, setting: { urlCheck: false } }));
-  writeFileSync(path.join(project, 'utils/previewConnection.js'), previewModule(address, token));
-  return project;
-}
-
-if (require.main === module) {
-  const address = process.argv[2];
-  if (address && !Object.values(networkInterfaces()).flat().some(ip => ip && ip.family === 'IPv4' && !ip.internal && ip.address === address)) {
-    throw new Error('请传入电脑当前连接手机 Wi-Fi 的 IPv4 地址。');
-  }
+function start(address) {
   if (!process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY_FILE) {
     process.env.DEEPSEEK_API_KEY = readFileSync(process.env.DEEPSEEK_API_KEY_FILE, 'utf8').trim();
   }
+  if (address === '--server') {
+    const token = process.env.TRAIL_PREVIEW_TOKEN?.trim();
+    if (!token) throw new Error('服务器联调需要设置 TRAIL_PREVIEW_TOKEN。');
+    listen('127.0.0.1', token);
+    return;
+  }
+  if (address && !Object.values(networkInterfaces()).flat().some(ip => ip && ip.family === 'IPv4' && !ip.internal && ip.address === address)) {
+    throw new Error('请传入电脑当前连接手机 Wi-Fi 的 IPv4 地址。');
+  }
+  const source = path.resolve(__dirname, '../miniprogram');
+  const output = path.resolve(__dirname, '../.local');
   const token = address ? randomBytes(24).toString('hex') : null;
-  const project = preparePreview(address, token);
+  const connection = { url: 'http://' + (address || '127.0.0.1') + ':8791/trail-assistant' };
+  if (address) connection.header = { 'Content-Type': 'application/json', 'X-Trail-Preview': token };
+  const project = writePreviewProject(source, output, address ? 'phone-preview-' : 'simulator-preview-', connection);
   console.log((address ? '真机调试工程 ' : '本机调试工程 ') + project);
   if (address) listen(address, token);
   listen('127.0.0.1');
 }
 
-module.exports = { previewModule };
+if (require.main === module) start(process.argv[2]);

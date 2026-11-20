@@ -40,6 +40,35 @@ node scripts/prepare-https-preview.cjs <当前 .local/phone-preview-* 工程路�
 
 把命令输出的 `.local/phone-internet-*` 导入微信开发者工具，生成普通预览码。手机微信扫码后，从右上角「…」选择「打开调试」，再用移动数据生成草稿。局域网服务和隧道都要保持运行；域名或配对码改变后重新生成预览包。正式云环境继续使用标准 `miniprogram/` 工程。[微信测试号说明](https://developers.weixin.qq.com/miniprogram/dev/devtools/sandbox.html)
 
+## 个人服务器 AI 预览
+
+可以在 Linux 服务器上运行行前助手。手机微信通过 HTTPS 发送请求，服务器使用与云函数相同的地图、天气和 DeepSeek 调用。生成预览码后，开发电脑可以关机。本方案供持码者个人调试，真实规划会使用服务器上的供应商额度。
+
+**服务器。** 将本仓库的 `scripts/` 和 `miniprogram/cloudfunctions/trailAssistant/` 按原目录放到 `~/.local/share/trailready-ai-preview/`，把该目录下的 `node` 链接到服务器已有的 Node.js 22 可执行文件。在权限为 `600` 的 `~/.config/trailready-ai-preview/service.env` 中，每行写一项 `名称=值`。填入下文列出的原有供应商变量，以及单独生成的随机 `TRAIL_PREVIEW_TOKEN`（例如用 `openssl rand -hex 24` 生成）。配对码只供本次预览使用。
+
+可用 Cloudflare Quick Tunnel 提供临时 HTTPS 入口。将官方 Linux 版 `cloudflared` 安装到 `~/.local/share/trailready-tunnel/cloudflared`，再将两个服务文件装入用户的 systemd。若需开机自启并在 SSH 退出后持续运行，请确认该用户已启用 linger。[Cloudflare Quick Tunnel](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+
+```sh
+cd ~/.local/share/trailready-ai-preview
+mkdir -p ~/.config/systemd/user
+cp scripts/trailready-ai-{preview,tunnel}.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now trailready-ai-preview.service trailready-ai-tunnel.service
+journalctl --user -u trailready-ai-tunnel.service -n 60 --no-pager
+```
+
+后端以 `--server` 运行，在 `127.0.0.1:8791` 校验每个请求的预览配对码；隧道将 HTTPS 请求转到此端口。隧道运行期间，这个端口须留给服务器模式。重建隧道后，从日志取新的 `https://….trycloudflare.com` 入口，重新生成预览包和二维码。结束个人试用时，可运行 `systemctl --user disable --now trailready-ai-tunnel.service trailready-ai-preview.service`。
+
+**微信预览包。** 在本地仓库安装并构建小程序 npm 依赖，把配对码单独存入被 Git 忽略的 `.local/pairing-token`，把当前 HTTPS 入口存入 `.local/origin.txt`。在 PowerShell 从仓库根目录运行以下命令（AppID 换成自己的测试号）。
+
+```powershell
+$env:TRAIL_WECHAT_APPID = '<测试号 AppID>'
+$env:TRAIL_PREVIEW_TOKEN_FILE = (Resolve-Path '.local/pairing-token').Path
+node scripts/prepare-https-preview.cjs --server (Get-Content -Raw '.local/origin.txt').Trim()
+```
+
+用微信开发者工具导入命令输出的 `.local/phone-server-*` 工程，点击「预览」。手机微信扫码，从右上角「…」打开调试，可以关闭 Wi-Fi，用移动数据查找目的地并生成草稿。这个包只在开发版使用配对信息。预览码过期后，可以在同一工程重新生成；轮换配对码后，需要同步到服务器与本地、重启后端并重新打包。
+
 ## 正式微信云环境
 
 先在开发者工具为正式 AppID 开通或关联云开发环境。标准工程的开发者工具和手机默认调用微信分配的默认云环境；如需指定某个已关联环境，可在[小程序启动文件](../miniprogram/app.js)填写 `cloudEnvironment`。环境 ID 可放在前端；供应商密钥只填在云函数环境变量中。

@@ -27,9 +27,10 @@ Page({
       } else if (item) {
         if (action === 'remove') delete trip.carry[id];
         if (action === 'worn') item.worn = !item.worn;
-        if (action === 'plus') item.quantity++;
-        if (action === 'minus') item.quantity = Math.max(1, item.quantity - 1);
-        item.packed = false;
+        if (action === 'plus' || action === 'minus') {
+          item.quantity = Math.max(1, item.quantity + (action === 'plus' ? 1 : -1));
+          item.packed = false;
+        }
       }
     })) this.onShow();
   }

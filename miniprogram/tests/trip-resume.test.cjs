@@ -169,7 +169,7 @@ test('通过页面准备两趟行程，冷启动恢复当前行程及各自的�
   let carry = open('carry', { trip: id });
   assert.deepEqual(carry.data.available, []);
   const gearEditor = open('index', { tab: 'gear', edit: 'new' });
-  gearEditor.onFormNameInput(event({}, '我的头灯'));
+  gearEditor.onFormNameInput(event({}, '1.5 L 水袋'));
   gearEditor.onFormWeightInput(event({}, '85'));
   gearEditor.onSaveGear();
   carry.onShow();
@@ -178,8 +178,15 @@ test('通过页面准备两趟行程，冷启动恢复当前行程及各自的�
   carry.changeItem(event({ id: gearId, action: 'plus' }));
   const item = carry.data.prep.items[0];
   assert.equal(carry.data.prep.kg, (item.weight * item.quantity / 1000).toFixed(2));
+  for (const worn of [true, false]) {
+    carry.changeItem(event({ id: gearId, action: 'worn' }));
+    assert.equal(carry.data.prep.items[0].worn, worn);
+    assert.equal(carry.data.prep.done, 0);
+  }
   let list = open('checklist', { trip: id });
   list.toggleGear(event({ id: gearId }));
+  assert.equal(list.data.prep.done, 1);
+  assert.equal(list.data.prep.items[0].worn, false);
   list.toggleCheck(event({ id: list.data.trip.checks[0].id }));
   modalText = '给头灯充电';
   list.addCheck();
@@ -203,8 +210,10 @@ test('通过页面准备两趟行程，冷启动恢复当前行程及各自的�
   carry = open('carry', { trip: id });
   carry.changeItem(event({ id: gearId, action: 'worn' }));
   assert.equal(carry.data.prep.kg, '0.00');
-  assert.equal(carry.data.prep.done, 2);
+  assert.equal(carry.data.prep.done, 3);
   assert.equal(carry.data.prep.items[0].quantity, 2);
+  carry.changeItem(event({ id: gearId, action: 'minus' }));
+  assert.equal(carry.data.prep.done, 2);
   assert.equal(trips.read().activeId, id);
 
   const updated = open('index', { trip: id, tab: 'trip' });

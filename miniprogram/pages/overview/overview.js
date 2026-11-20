@@ -1,5 +1,6 @@
 const trips = require('../../utils/trips');
 const { formatDateRange, getTodayString } = require('../../utils/dateUtils');
+const { routeTimeText } = require('../../utils/routeTime');
 const weatherApi = require('../../utils/weatherApi');
 
 Page({
@@ -16,6 +17,7 @@ Page({
     this.setData({ ...(changedTrip ? { useCurrentDays: false, destination: '', places: null, searching: false, planExpanded: false } : {}),
       planStart: changedTrip || !this.data.planStart ? getTodayString() : this.data.planStart,
       trip: hasSavedPlan ? { ...trip, aiPlan: { start: trip.aiPlan.start } } : trip,
+      routeTimes: trip ? trip.days.map(day => routeTimeText(day, !trip.aiPlan)) : [],
       hasSavedPlan, selectedIndex, choices: book.trips.map(t => ({ id: t.id, name: t.name })),
       dateRange: trip ? formatDateRange(trip.start, trip.days.length) : '',
       prep: trip ? trips.preparation(trip, trips.loadGear()) : null });

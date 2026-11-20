@@ -51,7 +51,7 @@
           <view wx:if="{{item.distance != null || item.ascent != null || item.hours != null}}" class="route-stats trail-meta">
             <text wx:if="{{item.distance != null}}">{{item.distance}} km</text>
             <text wx:if="{{item.ascent != null}}">爬升 {{item.ascent}} m</text>
-            <text wx:if="{{item.hours != null}}">{{item.hours}} 小时</text>
+            <text wx:if="{{routeTimes[index]}}">{{routeTimes[index]}}</text>
           </view>
           <text wx:if="{{item.stay || item.stayType === 'pending'}}" class="trail-meta">住宿 · {{item.stay || '待确认'}}</text><text wx:if="{{item.transport}}" class="trail-meta">接驳 · {{item.transport}}</text>
         </view>

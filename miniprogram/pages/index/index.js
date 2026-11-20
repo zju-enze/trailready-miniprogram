@@ -12,7 +12,7 @@ var trips = require('../../utils/trips');
 const dayMetrics = [
   { key: 'distance', label: '计划里程', unit: 'km' },
   { key: 'ascent', label: '累计爬升', unit: 'm' },
-  { key: 'hours', label: '行走耗时', unit: '小时' }
+  { key: 'hours', label: '计划用时', unit: '小时' }
 ];
 
 Page({
@@ -273,12 +273,23 @@ Page({
     this._savePlan();
   },
 
+  _clearMapHours(index, patch) {
+    if (this.data.dayPlans[index].hoursSource === 'map') {
+      patch['dayPlans[' + index + '].hours'] = null;
+      patch['dayPlans[' + index + '].hoursSource'] = null;
+    }
+  },
+
   onDayFieldInput(e) {
     const { index, field } = e.currentTarget.dataset;
     const key = 'dayPlans[' + index + '].';
     const patch = { [key + field]: e.detail.value };
     if (field === 'stay' || field === 'transport') patch[key + field + 'Confirmed'] = false;
-    if (field === 'from') patch[key + 'transportConfirmed'] = false;
+    if (field === 'hours') patch[key + 'hoursSource'] = /\d/.test(e.detail.value) ? 'manual' : null;
+    if (field === 'from') {
+      patch[key + 'transportConfirmed'] = false;
+      if (e.detail.value !== this.data.dayPlans[index].from) this._clearMapHours(index, patch);
+    }
     this.setData(patch);
     this._savePlan();
   },
@@ -427,6 +438,7 @@ Page({
     var value = e.detail.value;
     var key = 'dayPlans[' + index + '].destination';
     var updateData = {};
+    if (value !== this.data.dayPlans[index].destination) this._clearMapHours(index, updateData);
     updateData[key] = value;
     // 手动编辑即清除缓存的精准坐标 & ID，后续走文本查询
     updateData['dayPlans[' + index + ']._locationLngLat'] = '';
@@ -531,9 +543,10 @@ Page({
     // 填入 POI 名称 + 存入经纬度（lng,lat 格式给和风天气用）
     var updateData = {};
     updateData['dayPlans[' + index + '].destination'] = city.name;
-    updateData['dayPlans[' + index + ']._locationLngLat'] = (city.lng && city.lat)
-      ? city.lng + ',' + city.lat
-      : '';
+    const coords = city.lng && city.lat ? city.lng + ',' + city.lat : '';
+    const day = this.data.dayPlans[index];
+    if (day.destination !== city.name || day._locationLngLat !== coords) this._clearMapHours(index, updateData);
+    updateData['dayPlans[' + index + ']._locationLngLat'] = coords;
     // 腾讯地点 ID 与和风 Location ID 属于不同服务，地点查询使用坐标或名称。
     updateData['dayPlans[' + index + ']._locationId'] = '';
     updateData['dayPlans[' + index + '].fetchedWeather'] = null;

@@ -23,14 +23,16 @@
           </button>
           <view wx:else class="day-name"><text class="day-date">第 {{item.dayIndex}} 天 · {{item.displayDate}}</text><text class="day-route">{{item.from ? item.from + ' → ' : ''}}{{item.destination}}</text></view>
           <block wx:if="{{index === dayIndex}}">
-            <view wx:if="{{item.distance != null || item.ascent != null || item.hours != null}}" class="stats trail-meta">
+            <view wx:if="{{item.distance != null || item.ascent != null}}" class="stats trail-meta">
               <text wx:if="{{item.distance != null}}">约 {{item.distance}} km</text>
               <text wx:if="{{item.ascent != null}}">爬升 {{item.ascent}} m</text>
-              <text wx:if="{{item.hours != null}}">约 {{item.hours}} 小时</text>
             </view>
+            <text wx:if="{{item.timeText}}" class="route-time">{{item.timeText}}</text>
+            <text wx:if="{{lastHike}}" class="trail-meta">{{lastHike}}</text>
+            <text class="trail-meta route-check">出发前请核实步道是否开放、沿途路况</text>
             <map wx:if="{{mapView}}" id="route-map" class="route-map" latitude="{{mapView.latitude}}" longitude="{{mapView.longitude}}" scale="14"
               markers="{{mapView.markers}}" polyline="{{mapView.line}}" include-points="{{mapView.bounds}}" aria-label="第 {{item.dayIndex}} 天路线地图"/>
-            <text class="map-source">{{mapView ? (mapView.line.length ? '腾讯地图 · 步行路线' : '地点位置 · 路线待核实') : '路线地图待核实'}}</text>
+            <text class="map-source">{{mapView ? (mapView.line.length ? '普通步行路网' : '地点位置 · 路线待核实') : '路线地图待核实'}}</text>
             <view class="day-weather">
               <block wx:if="{{item.weather && item.weather.source === 'qweather'}}">
                 <text class="day-date">和风预报{{item.weatherPlace ? ' · ' + item.weatherPlace : ''}}</text>

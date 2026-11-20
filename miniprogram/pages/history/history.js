@@ -5,6 +5,7 @@ const { EFFORT_LABELS, METRICS, inspectRecord, readHistory } = require('../../ut
 const { generateDailyAbility } = require('../../utils/abilityAssessment');
 
 const HISTORY_PREVIEW_LIMIT = 3;
+const FORM_VALIDATION_ERROR = '请检查标记的字段。';
 
 const ABILITY_FIELDS = [
   { key: 'distanceKm', label: '适宜徒步距离', unit: 'km' },
@@ -229,7 +230,16 @@ Page({
         : (record?.effortLevel == null ? record?.effort || '' : ''), error: '', fields: {} });
   },
   changeDate(e) { this.setData({ 'draft.date': e.detail.value, pickerDate: e.detail.value }); },
-  changeEffort(e) { this.setData({ effortIndex: Number(e.detail.value) }); },
+  changeEffort(e) {
+    const effortIndex = Number(e.detail.value);
+    const patch = { effortIndex };
+    if (effortIndex > 0 && EFFORT_LABELS[effortIndex] && this.data.fields.effortLevel) {
+      patch.fields = { ...this.data.fields };
+      delete patch.fields.effortLevel;
+      if (Object.keys(patch.fields).length <= 1 && this.data.error === FORM_VALIDATION_ERROR) patch.error = '';
+    }
+    this.setData(patch);
+  },
   cancel() {
     this.editingRecord = null;
     this.setData({ draft: null });
@@ -240,7 +250,7 @@ Page({
     const form = { ...draft, name: formText(values.name), note: formText(values.note) };
     for (const { key } of METRICS) form[key] = formText(values[key]);
     const { eligible, record, fields } = inspectRecord({ ...form, effortLevel: effortIndex || null });
-    if (!eligible) return this.setData({ draft: form, fields, error: '请检查标记的字段。' });
+    if (!eligible) return this.setData({ draft: form, fields, error: Object.keys(fields).length > 1 ? FORM_VALIDATION_ERROR : '' });
 
     const editing = this.editingRecord;
     const previous = editing?.raw;

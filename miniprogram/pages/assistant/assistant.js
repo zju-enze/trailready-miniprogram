@@ -1,4 +1,5 @@
 const { generatePlan, adoptPlan, getSavedPlan } = require('../../utils/aiPlan');
+const { routeTimeText, lastHikeText } = require('../../utils/routeTime');
 
 function routeView(route) {
   if (!route) return null;
@@ -61,8 +62,8 @@ Page({
   showPlan(plan) {
     this.plan = plan;
     // 原始轨迹留给保存和地图，避免把所有天数的坐标都发送给页面渲染层。
-    const days = plan.days.map(({ map, ...day }) => day);
-    this.setData({ plan: { ...plan, days }, dayIndex: 0, mapView: routeView(plan.days[0].map) });
+    const days = plan.days.map(({ map, ...day }) => ({ ...day, timeText: routeTimeText(day) }));
+    this.setData({ plan: { ...plan, days }, lastHike: lastHikeText(), dayIndex: 0, mapView: routeView(plan.days[0].map) });
   },
   selectDay(e) {
     const index = Number(e.currentTarget.dataset.index);

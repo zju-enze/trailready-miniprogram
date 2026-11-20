@@ -108,7 +108,7 @@
         </label>
         <text wx:if="{{fields[item.key]}}" class="record-error" role="alert">{{fields[item.key]}}</text>
       </view>
-      <view class="field-row">体感<picker range="{{efforts}}" value="{{effortIndex}}" bindchange="changeEffort" aria-label="五级徒步体感"><view>{{efforts[effortIndex]}}　›</view></picker></view>
+      <view class="field-row">体感（必填）<picker range="{{efforts}}" value="{{effortIndex}}" bindchange="changeEffort" aria-label="五级徒步体感，必填"><view>{{efforts[effortIndex]}}　›</view></picker></view>
       <text wx:if="{{legacyEffort}}" class="trail-meta">原体感：{{legacyEffort}}</text>
       <text wx:if="{{fields.effortLevel}}" class="record-error" role="alert">{{fields.effortLevel}}</text>
     </view>

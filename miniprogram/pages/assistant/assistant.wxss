@@ -19,6 +19,8 @@
 .day-weather { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6rpx 14rpx; margin: 14rpx 0 4rpx; border-top: 1rpx solid #e5e9e6; padding-top: 14rpx; }
 .weather-reading { font-size: 28rpx; color: #16231d; font-weight: 600; }
 .stats { display: flex; flex-wrap: wrap; column-gap: 16rpx; }
+.route-time { font-size: 28rpx; font-weight: 600; }
+.route-check { margin-top: 4rpx; }
 .gear-group + .gear-group { margin-top: 30rpx; }
 .plan-item { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid #e5e9e6; }
 .plan-item:last-child { padding-bottom: 0; border: 0; }

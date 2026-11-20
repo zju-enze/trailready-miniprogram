@@ -29,12 +29,16 @@ function selectedPoint(event, name) {
 function readDays(event, destination) {
   const rows = Array.isArray(event.days) && event.days.length ? event.days : [{}];
   if (rows.length > 30) throw new Error('单次规划最多支持 30 天。');
-  return rows.map((row, i) => ({
-    date: dayDate(event.start, i), from: text(row.from), destination: text(row.destination) || destination,
-    distance: numberOrNull(row.distance), ascent: numberOrNull(row.ascent), hours: numberOrNull(row.hours),
-    stayType: ['camping', 'hotel', 'daytrip', 'pending'].includes(row.stayType) ? row.stayType : 'daytrip',
-    stay: text(row.stay), transport: text(row.transport)
-  }));
+  return rows.map((row, i) => {
+    const hours = numberOrNull(row.hours);
+    return {
+      date: dayDate(event.start, i), from: text(row.from), destination: text(row.destination) || destination,
+      distance: numberOrNull(row.distance), ascent: numberOrNull(row.ascent), hours,
+      hoursSource: hours !== null && ['map', 'manual'].includes(row.hoursSource) ? row.hoursSource : null,
+      stayType: ['camping', 'hotel', 'daytrip', 'pending'].includes(row.stayType) ? row.stayType : 'daytrip',
+      stay: text(row.stay), transport: text(row.transport)
+    };
+  });
 }
 
 async function routeOptions(from, to) {
@@ -208,7 +212,10 @@ async function planTrip(event, name, selected) {
       out.from = out.from || route.from;
       if (automatic) out.destination = route.destination;
       out.distance = out.distance ?? route.distance;
-      out.hours = out.hours ?? route.hours;
+      if (out.hours === null) {
+        out.hours = route.hours;
+        out.hoursSource = 'map';
+      }
       notes.push(date + ' 腾讯地图步行路网参考：' + route.from + ' → ' + route.destination
         + '，约 ' + route.distance + ' km、' + route.hours + ' 小时。山路通行和折返需另行核对。');
     } else {

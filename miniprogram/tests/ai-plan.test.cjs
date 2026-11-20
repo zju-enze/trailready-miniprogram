@@ -4,6 +4,7 @@ const trips = require('../utils/trips');
 const service = require('../utils/trailAssistant');
 const weather = require('../utils/weatherApi');
 const { generatePlan, getSavedPlan } = require('../utils/aiPlan');
+const { routeTimeText, lastHikeText } = require('../utils/routeTime');
 
 function loadPage(name) {
   let page;
@@ -11,12 +12,19 @@ function loadPage(name) {
   const path = require.resolve('../pages/' + name + '/' + name);
   delete require.cache[path];
   require(path);
-  page.setData = patch => Object.assign(page.data, structuredClone(patch));
+  page.setData = patch => {
+    for (const [key, value] of Object.entries(patch)) {
+      const parts = key.replace(/\[(\d+)\]/g, '.$1').split('.');
+      const field = parts.pop();
+      parts.reduce((parent, part) => parent[part], page.data)[field] = structuredClone(value);
+    }
+  };
   return page;
 }
 
 test('规划使用最近十二次有效日期的经历，兼容不完整旧记录并保留原始存储', async t => {
   const old = Array.from({ length: 12 }, (_, i) => ({ name: '山路', date: '2024-01-' + String(i + 1).padStart(2, '0') }));
+  Object.assign(old[0], { distance: 7, hours: 3 });
   const book = { trips: [], history: [
     null, { name: '坏日期', date: 20250505 }, ...old,
     { name: '旧路线', date: '2025-01-10', distance: 0, hours: '2.5', ascent: '0', load: -2, effortLevel: 4, note: '私有备注' }
@@ -36,6 +44,60 @@ test('规划使用最近十二次有效日期的经历，兼容不完整旧记�
   await assert.rejects(generatePlan(input), /徒步经历格式异常/);
   assert.equal(book.history, '损坏的旧集合');
   assert.equal(transport.mock.callCount(), 1);
+  assert.equal(lastHikeText(before), '你上次走了 7 公里，用时 3 小时');
+  assert.equal(lastHikeText({ history: [] }), '');
+});
+
+test('路线卡按显式来源标时，分钟进位且旧地图不会替旧用时背书', () => {
+  const map = { points: [{ latitude: 30.1, longitude: 120.1 }, { latitude: 30.2, longitude: 120.2 }] };
+  const days = [
+    { hours: 1.78, hoursSource: 'map', map }, { hours: 3, hoursSource: 'manual', map },
+    { hours: 1.999, map }, { hours: 0.5 }, { hours: null }
+  ];
+  const book = { history: [{ name: '昨天的实际路线', date: '2025-07-10', distance: 8.5, hours: 2.25 }] };
+  global.wx = { getStorageSync: () => book };
+  const page = loadPage('assistant');
+  page.showPlan({ days });
+  assert.deepEqual(page.data.plan.days.map(d => d.timeText), [
+    '地图步行估时约 1 小时 47 分', '手填计划用时 3 小时', '参考用时 2 小时', '参考用时 30 分', ''
+  ]);
+  assert.equal(page.data.lastHike, '你上次走了 8.5 公里，用时 2 小时 15 分');
+  assert.equal(routeTimeText({ hours: 0 }, true), '手填计划用时 0 分');
+});
+
+test('手工改写及清空用时、修改地图路段、复用旧 AI 行程，均保留真实来源', async t => {
+  const trip = trips.newTrip('周末');
+  trip.aiPlan = { summary: '旧方案' };
+  Object.assign(trip.days[0], { from: '原起点', destination: '原终点', hours: 1.78, hoursSource: 'map' });
+  let book = { trips: [trip], activeId: trip.id, history: [] };
+  global.wx = {
+    getStorageSync: key => key === 'trailready_trips' ? structuredClone(book) : '',
+    setStorageSync: (key, value) => { book = structuredClone(value); }, setNavigationBarTitle() {}
+  };
+  const editor = loadPage('index');
+  editor.onLoad({ trip: trip.id, tab: 'trip' });
+  const input = (field, value) => ({ currentTarget: { dataset: { index: 0, field } }, detail: { value } });
+  editor.onDayFieldInput(input('from', '新起点'));
+  assert.equal(book.trips[0].days[0].hours, null);
+  assert.equal(book.trips[0].days[0].hoursSource, null);
+  editor.onDayMetricInput(input('hours', '1.5'));
+  editor.onDayFieldInput(input('from', '另一起点'));
+  const home = loadPage('overview');
+  home.onShow();
+  assert.deepEqual(home.data.routeTimes, ['手填计划用时 1 小时 30 分']);
+  editor.onDayMetricInput(input('hours', ''));
+  assert.equal(book.trips[0].days[0].hoursSource, null);
+  book.trips[0].days[0].hours = 2;
+  delete book.trips[0].days[0].hoursSource;
+  home.onShow();
+  assert.deepEqual(home.data.routeTimes, ['参考用时 2 小时']);
+  const transport = t.mock.method(service, 'callAssistant', async () => ({ plan: { days: [{}], equipment: [], missing: [], notes: [] } }));
+  const request = { destination: '周末', start: trip.start, sourceTripId: trip.id };
+  await generatePlan(request);
+  assert.equal(transport.mock.calls[0].arguments[0].days[0].hoursSource, 'unknown');
+  delete book.trips[0].aiPlan;
+  await generatePlan(request);
+  assert.equal(transport.mock.calls[1].arguments[0].days[0].hoursSource, 'manual');
 });
 
 test('草稿按天切换步行轨迹和仅有地点，并保留各日期的天气', () => {
@@ -109,7 +171,7 @@ test('目的地确认后才生成，草稿可重试；采用后按天、按库�
     assert.equal(payload.history[0].note, undefined);
     assert.equal(payload.gear[0].id, 'my-pack');
     return { plan: { destination: '九溪烟树', summary: '两日缓行', notes: ['核实山道开放情况'],
-      days: [{ from: '甲', destination: '乙', distance: 8.5, ascent: 0, hours: 2, stayType: 'hotel', stay: '客栈', transport: '',
+      days: [{ from: '甲', destination: '乙', distance: 8.5, ascent: 0, hours: 1.78, hoursSource: 'map', stayType: 'hotel', stay: '客栈', transport: '',
         map, weather: forecast, weatherPlace: '乙' },
         { from: '乙', destination: '丙', distance: null, ascent: null, hours: null, stayType: 'daytrip', stay: '', transport: '公交' }],
       equipment: [{ id: pack.id, quantity: 1, reason: '携带物资' }, { id: 'invented-id', quantity: 1, reason: '' }],
@@ -142,6 +204,9 @@ test('目的地确认后才生成，草稿可重试；采用后按天、按库�
   assert.equal(chosenTab, '/pages/overview/overview');
   assert.equal(added.days[0].map, undefined);
   assert.equal(added.days[0].weather, undefined);
+  home.onShow();
+  assert.equal(home.data.routeTimes[0], '地图步行估时约 1 小时 47 分');
+  assert.equal(page.data.plan.days[0].timeText, home.data.routeTimes[0]);
   trips.update(added.id, trip => { trip.start = '2028-03-01'; trip.days[0].destination = '更换后的目的地'; });
   const original = getSavedPlan(added.id);
   assert.equal(original.start, '2028-01-31');
@@ -158,6 +223,7 @@ test('目的地确认后才生成，草稿可重试；采用后按天、按库�
   assert.equal(trips.read().trips.length, 2);
   home.onShow();
   assert.equal(home.data.hasSavedPlan, true);
+  assert.equal(reopened.data.plan.days[0].timeText, '地图步行估时约 1 小时 47 分');
   assert.equal(home.data.trip.aiPlan.days, undefined);
   trips.update(source.id, trip => { trip.aiPlan = { start: trip.start, summary: '旧版摘要', notes: [] }; });
   assert.equal(getSavedPlan(source.id), null);

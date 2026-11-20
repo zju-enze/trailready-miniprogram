@@ -381,6 +381,25 @@ test('history tab displays legacy self assessment and mixed records without writ
   assert.equal(page.data.records[1].needsReview, false);
 });
 
+test('选择有效体感后即时清除最后一项校验错误，再保存该次实际徒步', () => {
+  const page = open(historyDefinition);
+  page.edit({ currentTarget: { dataset: {} } });
+  const values = { name: '验收踏查', distance: '7', hours: '3', ascent: '', load: '', note: '' };
+  page.saveRecord({ detail: { value: values } });
+  assert.deepEqual(Object.keys(page.data.fields), ['effortLevel']);
+  assert.equal(page.data.error, '');
+  page.changeEffort({ detail: { value: '0' } });
+  assert.ok(page.data.fields.effortLevel);
+  page.changeEffort({ detail: { value: '3' } });
+  assert.deepEqual(page.data.fields, {});
+  assert.equal(page.data.error, '');
+  assert.ok(page.data.draft);
+  page.saveRecord({ detail: { value: values } });
+  assert.equal(page.data.draft, null);
+  const [record] = disk.get('trailready_trips').history;
+  assert.deepEqual([record.distance, record.hours, record.effort], [7, 3, '适中']);
+});
+
 test('history form rejects invalid input and retains the draft on validation and storage failures', () => {
   const original = { trips: [], history: [{ id: 'old', name: 'PROFILE TEST old', date: '2025-01-01' }] };
   disk.set('trailready_trips', structuredClone(original));
@@ -393,12 +412,16 @@ test('history form rejects invalid input and retains the draft on validation and
   assert.equal(page.data.draft.load, '0');
   assert.deepEqual(disk.get('trailready_trips'), original);
   page.changeEffort({ detail: { value: '5' } });
+  assert.deepEqual(Object.keys(page.data.fields).sort(), ['distance', 'hours']);
+  assert.equal(page.data.error, '请检查标记的字段。');
   failWrite = true;
   page.saveRecord({ detail: { value: { ...fields, distance: '9', hours: '2' } } });
   assert.equal(page.data.draft.distance, '9');
   assert.equal(page.data.effortIndex, 5);
   assert.match(page.data.error, /未保存/);
   assert.deepEqual(disk.get('trailready_trips'), original);
+  page.changeEffort({ detail: { value: '5' } });
+  assert.match(page.data.error, /未保存/);
   failWrite = false;
   page.saveRecord({ detail: { value: page.data.draft } });
   const saved = disk.get('trailready_trips').history[0];

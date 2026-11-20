@@ -16,7 +16,7 @@
         <button class="trail-muted" data-id="{{item.id}}" data-action="remove" bindtap="changeItem" aria-label="移除{{item.name}}">移除</button>
       </view>
       <view class="trail-controls">
-        <button class="placement" data-id="{{item.id}}" data-action="worn" bindtap="changeItem" aria-label="{{item.name}}，{{item.worn ? '已穿在身上，切换到包内' : '已放在包内，切换为穿着'}}">{{item.worn ? '穿在身上' : '放在包内'}} ⇄</button>
+        <button class="placement" data-id="{{item.id}}" data-action="worn" bindtap="changeItem" aria-label="{{item.name}}，携带方式：{{item.worn ? '穿在身上，切换为放在包内' : '放在包内，切换为穿在身上'}}">携带方式：{{item.worn ? '穿在身上' : '放在包内'}}</button>
         <view class="stepper">
           <button disabled="{{item.quantity <= 1}}" aria-label="减少{{item.name}}数量" data-id="{{item.id}}" data-action="minus" bindtap="changeItem">−</button>
           <text>{{item.quantity}}</text>
@@ -33,5 +33,5 @@
       <button class="trail-link" data-id="{{item.id}}" data-action="add" bindtap="changeItem" aria-label="添加{{item.name}}">添加</button>
     </view>
   </view>
-  <navigator class="trail-primary" url="/pages/checklist/checklist?trip={{trip.id}}" open-type="redirect">行前清单</navigator>
+  <navigator class="trail-primary" url="/pages/checklist/checklist?trip={{trip.id}}" open-type="redirect" aria-label="去清单勾选已装包">去清单勾选已装包</navigator>
 </view>

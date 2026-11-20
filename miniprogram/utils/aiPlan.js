@@ -2,6 +2,7 @@ const trips = require('./trips');
 const dates = require('./dateUtils');
 const assistant = require('./trailAssistant');
 const { inspectRecord, readHistory } = require('./hikeHistory');
+const { hoursSourceFor } = require('./routeTime');
 
 async function generatePlan({ destination, start, place, sourceTripId }) {
   const book = trips.read();
@@ -16,8 +17,10 @@ async function generatePlan({ destination, start, place, sourceTripId }) {
   }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12)
     .map(({ name, date, distance, ascent, hours, load, effort }) =>
       ({ name, date, distance, ascent, hours, load, effort }));
-  const days = (source ? source.days : []).map(({ from, destination, distance, ascent, hours, stayType, stay, transport }) =>
-    ({ from, destination, distance, ascent, hours, stayType, stay, transport }));
+  const days = (source ? source.days : []).map(day => {
+    const { from, destination, distance, ascent, hours, stayType, stay, transport } = day;
+    return { from, destination, distance, ascent, hours, hoursSource: hoursSourceFor(day, !source.aiPlan), stayType, stay, transport };
+  });
   const result = await assistant.callAssistant({ action: 'plan', destination, start, days, history,
     gear: gear.map(({ id, name, category, weight, tags }) => ({ id, name, category, weight, tags })),
     ...(place ? { place: { id: place.id, name: place.name, address: place.address, lat: place.lat, lng: place.lng } } : {}) });
